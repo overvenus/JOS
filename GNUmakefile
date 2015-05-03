@@ -219,7 +219,7 @@ git-handin: handin-check
 		false; \
 	fi
 
-WEBSUB = https://ccutler.scripts.mit.edu/6.828/handin.py
+WEBSUB = https://127.0.0.1/6.828/handin.py
 
 handin: tarball-pref myapi.key
 	@SUF=$(LAB); \
