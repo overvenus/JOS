@@ -20,4 +20,6 @@
 # Clion
 /.idea/
 CMakeLists.txt
+
 .tags*
+private*/
