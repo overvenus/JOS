@@ -16,3 +16,8 @@
 /sol?/
 /myapi.key
 /GNUmakefile
+
+# Clion
+/.idea/
+CMakeLists.txt
+.tags*

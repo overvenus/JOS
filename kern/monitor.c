@@ -58,7 +58,35 @@ mon_kerninfo(int argc, char **argv, struct Trapframe *tf)
 int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
-	// Your code here.
+	// http://unixwiz.net/techtips/win32-callconv-asm.html
+	// Calling a __cdecl function
+
+	cprintf("Stack backtrace:\n");
+	// current ebp
+	uint32_t ebp = read_ebp();
+	// the old ebp address
+	uint32_t old_ebp = *(uint32_t *) ebp;
+
+	// cuurent return address
+	uint32_t ret = *(((uint32_t *)ebp) + 1);
+	// cuurent return address
+	uint32_t old_ret = *(((uint32_t *)old_ebp) + 1);
+
+	uint32_t args[5];
+
+	int i;
+	while (ebp != 0x0){
+		for (i = 0; i < 5; i++){
+			args[i] = *((uint32_t *)ebp + i + 2);
+		}
+		cprintf("    ebp %x eip %x args %x %x %x %x %x\n", ebp, ret,
+			args[0], args[1], args[2], args[3], args[4]);
+		ebp = old_ebp;
+		old_ebp = *(uint32_t *) ebp;
+		ret = old_ret;
+		old_ret = *(((uint32_t *)old_ebp) + 1);
+
+	}
 	return 0;
 }
 
