@@ -70,7 +70,7 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	uint32_t old_ebp = *(uint32_t *) ebp;
 
 	// cuurent return address
-	uint32_t ret = *(((uint32_t *)ebp) + 1);
+	uint32_t ret = *(((uint32_t *) ebp) + 1);
 	// old return address
 	uint32_t old_ret = *(((uint32_t *)old_ebp) + 1);
 
@@ -78,13 +78,13 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 
 	struct Eipdebuginfo info;
 	int i;
-	while (ebp != 0x0){
-		for (i = 0; i < 5; i++){
-			args[i] = *((uint32_t *)ebp + i + 2);
+	while (ebp != 0x0) {
+		for (i = 0; i < 5; i++) {
+			args[i] = *((uint32_t *) ebp + i + 2);
 		}
 		debuginfo_eip(ret, &info);
 		// ebp f010ff78  eip f01008ae  args 00000001 f010ff8c 00000000 f0110580 00000000
-        //      kern/monitor.c:143: monitor+106
+		//      kern/monitor.c:143: monitor+106
 		cprintf("  ebp %x eip %x args %08x %08x %08x %08x %08x\n"  // no ,
 				"         %s:%d: %.*s+%d\n",
 				ebp, ret, args[0], args[1], args[2], args[3], args[4],
@@ -93,7 +93,7 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 		ebp = old_ebp;
 		old_ebp = *(uint32_t *) ebp;
 		ret = old_ret;
-		old_ret = *(((uint32_t *)old_ebp) + 1);
+		old_ret = *(((uint32_t *) old_ebp) + 1);
 
 	}
 	return 0;
