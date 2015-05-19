@@ -181,6 +181,7 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	// Your code here.
 
 	// My code
+	// https://sourceware.org/gdb/onlinedocs/stabs.html#Line-Numbers
 	stab_binsearch(stabs, &lline, &rline, N_SLINE, addr);
 	if (lline > rline)
 		return -1;
