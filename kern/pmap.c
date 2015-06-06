@@ -99,7 +99,25 @@ boot_alloc(uint32_t n)
 	//
 	// LAB 2: Your code here.
 
-	return NULL;
+	// We are alreadly using kernel virtual address, b/c `end`is a virtual
+	// address.
+	char *retaddr = nextfree;
+
+	if (! n)
+		return retaddr;
+
+	// Quick and dity way of diving PGSIZE, 2^12.
+	nextfree += PGSIZE * (n >> 12);
+
+	// check whether it needs more memory or not.
+	if (n & 0xfff)
+		nextfree += PGSIZE;
+
+	// TODO: Out of memory
+	// if ((int)nextfree > ?)
+	// 	panic("boot_alloc, out of memory!");
+
+	return retaddr;
 }
 
 // Set up a two-level page table:
@@ -121,7 +139,7 @@ mem_init(void)
 	i386_detect_memory();
 
 	// Remove this line when you're ready to test this function.
-	panic("mem_init: This function is not finished\n");
+	// panic("mem_init: This function is not finished\n");
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
@@ -145,6 +163,7 @@ mem_init(void)
 	// to initialize all fields of each struct PageInfo to 0.
 	// Your code goes here:
 
+	pages = (struct PageInfo *)boot_alloc(sizeof(struct PageInfo) * npages);
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -247,8 +266,54 @@ page_init(void)
 	// Change the code to reflect this.
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
+
+	// [BASEMEM] <------------- 0x00000000
+	// ...
+	// ...   640KB
+	// ...
+	// [IOPHYSMEM] <----------- 0x000A0000
+	// ...
+	// ...   I/O hole
+	// ...
+	// [EXTPHYSMEM] <---------- 0x00100000
+	// ...
+	// extern char entry[]; <-- 0x0010000c
+	// ...
+	// ...   kernel
+	// ...
+	// extern char end[]; <---- 0x00113970
+	// ...
+	// ...   There is a blank between end and kern_pgdir,
+	// ...   this blank may be smaller then PGSIZE due to ROUNDUP.
+	// ...
+	// kern_pgdir
+	// ...
+	// ....  one page gap
+	// ...
+	// pages itself!
+	// ...   used!
+	// ...   ...
+	// ...   used!
+	// ...   unused!
+	// ...   ...
+
 	size_t i;
-	for (i = 0; i < npages; i++) {
+
+	// physical page 0
+	pages[0].pp_ref = 1;
+
+	// [PGSIZE, npages_basemem * PGSIZE)
+	for (i = 1; i < npages_basemem; i++) {
+		pages[i].pp_ref = 0;
+		pages[i].pp_link = page_free_list;
+		page_free_list = &pages[i];
+	}
+	// [IOPHYSMEM, EXTPHYSMEM)  ignore
+	// kernel  ignore
+	// allocted memory in boot_alloc()  ignore
+	size_t nextfree = (size_t)boot_alloc(0);
+	size_t next_index = (nextfree - KERNBASE) >> 12;
+	for (i = next_index; i < npages; i++) {
 		pages[i].pp_ref = 0;
 		pages[i].pp_link = page_free_list;
 		page_free_list = &pages[i];
