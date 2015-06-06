@@ -171,6 +171,43 @@ qemu-nox-gdb: $(IMAGES) pre-qemu
 	@echo "***"
 	$(QEMU) -nographic $(QEMUOPTS) -S
 
+# Open monitor by telnet
+# fix the damn 'ctrl+a c' bug!
+QEMUTELHOST = 127.0.0.1
+QEMUTELPORT = 9099
+QEMUMONITOR = -monitor telnet:$(QEMUTELHOST):$(QEMUTELPORT),server,nowait
+
+monitor:
+	@echo "Opening..."
+	telnet $(QEMUTELHOST) $(QEMUTELPORT)
+
+tqemu: $(IMAGES) pre-qemu
+	@echo "***"
+	@echo "*** Now run 'make monitor' to open monitor."
+	@echo "***"
+	$(QEMU) $(QEMUOPTS) $(QEMUMONITOR)
+
+tqemu-nox: $(IMAGES) pre-qemu
+	@echo "***"
+	@echo "*** Now run 'make monitor' to open monitor."
+	@echo "*** Use Ctrl-a x to exit qemu"
+	@echo "***"
+	$(QEMU) -nographic $(QEMUOPTS) $(QEMUMONITOR)
+
+tqemu-gdb: $(IMAGES) pre-qemu
+	@echo "***"
+	@echo "*** Now run 'make monitor' to open monitor." 1>&2
+	@echo "*** Now run 'make gdb'." 1>&2
+	@echo "***"
+	$(QEMU) $(QEMUOPTS) -S $(QEMUMONITOR)
+
+tqemu-nox-gdb: $(IMAGES) pre-qemu
+	@echo "***"
+	@echo "*** Now run 'make monitor' to open monitor." 1>&2
+	@echo "*** Now run 'make gdb'." 1>&2
+	@echo "***"
+	$(QEMU) -nographic $(QEMUOPTS) -S $(QEMUMONITOR)
+
 print-qemu:
 	@echo $(QEMU)
 
