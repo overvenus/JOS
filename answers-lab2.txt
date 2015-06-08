@@ -1,0 +1,9 @@
+Q1: Assuming that the following JOS kernel code is correct, what type
+    should variable x have, uintptr_t or physaddr_t?
+	mystery_t x;
+	char* value = return_a_pointer();
+	*value = 10;
+	x = (mystery_t) value;
+A1: uintptr_t. All pointers in C are virtual address, thus `vaule` is a
+    virtual address, and x means the virtual address of `*vaule`.
+
