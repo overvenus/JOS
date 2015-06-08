@@ -323,9 +323,14 @@ page_init(void)
 	}
 	// [IOPHYSMEM, EXTPHYSMEM)  ignore
 	// kernel  ignore
-	// allocted memory in boot_alloc()  ignore
+	// allocted memory by boot_alloc()  ignore
 	size_t nextfree = (size_t)boot_alloc(0);
-	size_t next_index = (nextfree - KERNBASE) >> 12;
+	size_t next_index = (size_t)PADDR((void *)nextfree) >> 12;
+
+	for (i = npages_basemem; i < next_index; ++i)
+		// Has been used by kernel and pagings
+		pages[i].pp_ref = 1;
+
 	for (i = next_index; i < npages; i++) {
 		pages[i].pp_ref = 0;
 		pages[i].pp_link = page_free_list;
@@ -348,8 +353,18 @@ page_init(void)
 struct PageInfo *
 page_alloc(int alloc_flags)
 {
-	// Fill this function in
-	return 0;
+	// Out of memory
+	if (! page_free_list)
+		return NULL;
+
+	struct PageInfo *ret_p = page_free_list;
+	page_free_list = page_free_list->pp_link;
+
+	ret_p->pp_link = NULL;
+	if (alloc_flags & ALLOC_ZERO) {
+		memset(page2kva(ret_p), 0, PGSIZE);
+	}
+	return ret_p;
 }
 
 //
@@ -362,6 +377,14 @@ page_free(struct PageInfo *pp)
 	// Fill this function in
 	// Hint: You may want to panic if pp->pp_ref is nonzero or
 	// pp->pp_link is not NULL.
+	if (pp->pp_ref != 0)
+		panic("Page can't free, has reference");
+	if (pp->pp_link != NULL)
+		panic("Page can't free, has link");
+
+	// Add to page_free_list.
+	pp->pp_link = page_free_list;
+	page_free_list = pp;
 }
 
 //
@@ -400,8 +423,34 @@ page_decref(struct PageInfo* pp)
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
-	// Fill this function in
-	return NULL;
+	pde_t present = pgdir[PDX(va)] & PTE_P;
+
+	if (! present) {
+		// The relevant page table page might not exist yet.
+
+		if (! create)
+			// create == false, then pgdir_walk returns NULL
+			return NULL;
+
+		struct PageInfo *pt_pi;
+		pt_pi = page_alloc(1);
+		if (! pt_pi)
+			// Out of memory!
+			return NULL;
+
+		pt_pi->pp_ref += 1;
+		physaddr_t p_pa = page2pa(pt_pi);
+		pgdir[PDX(va)] = p_pa | PTE_P;
+
+		// The new table virtual address.
+		// physaddr_t pt_phy = page2pa(pt_pi);
+		// return (pte_t *)KADDR(pt_phy);
+	}
+	physaddr_t pt_phy = PTE_ADDR(pgdir[PDX(va)]);
+
+	pte_t *pt_virt = (pte_t *)KADDR(pt_phy);
+
+	return &pt_virt[PTX(va)];
 }
 
 //
@@ -418,7 +467,16 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
-	// Fill this function in
+	pte_t *pte_va = pgdir_walk(pgdir, (void *)va, 1);
+	size_t pages_num = size / PGSIZE;
+	while(pages_num) {
+
+		*pte_va = pa | perm | PTE_P;
+
+		pa += PGSIZE;
+		pte_va++;
+		pages_num--;
+	}
 }
 
 //
@@ -449,7 +507,65 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
-	// Fill this function in
+	pte_t *va_pte = pgdir_walk(pgdir, va, 1);
+	if (! va_pte)
+		// E_NO_MEM, if page table couldn't be allocated
+		return -E_NO_MEM;
+
+	physaddr_t pp_pa = page2pa(pp);
+
+// OLD______
+	// if ((*va_pte) & PTE_P) {
+	// 	// There is something in this pte.
+	// 	if (PTE_ADDR(*va_pte) == pp_pa) {
+	// 		// Re-insert
+	// 		*va_pte = pp_pa | perm | PTE_P;
+	// 		if (perm | PTE_U)
+	// 			// Changes to User Table
+	// 			pgdir[PDX(va)] |= PTE_U;
+	// 		return 0;
+	// 	}
+	// 	// Different page
+	// 	page_remove(pgdir, va);
+	// }
+
+	// // Nothing in this PTE
+	// *va_pte = pp_pa | perm | PTE_P;
+	// if (perm | PTE_U)
+	// 	// Changes to User Table
+	// 	pgdir[PDX(va)] |= PTE_U;
+
+	// pp->pp_ref += 1;
+
+	// return 0;
+
+// NEW______
+	if (! (*va_pte) & PTE_P)
+		// Nothing in this PTE
+		goto nonpresent;
+
+	// There is something in this pte.
+	if (PTE_ADDR(*va_pte) == pp_pa)
+		// Re-insert
+		goto present_same;
+	else
+		// Different page
+		goto present_different;
+
+	present_different:
+		page_remove(pgdir, va);
+
+	nonpresent:
+		*va_pte = pp_pa;
+		pp->pp_ref += 1;
+		tlb_invalidate(pgdir, va);
+
+	present_same:
+		*va_pte = pp_pa | perm | PTE_P;
+		if (perm | PTE_U)
+			// Changes to User Table
+			pgdir[PDX(va)] |= PTE_U;
+
 	return 0;
 }
 
@@ -467,8 +583,17 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
-	// Fill this function in
-	return NULL;
+	pte_t *pte_va = pgdir_walk(pgdir, va, 0);
+	if (! pte_va)
+		return NULL;
+
+	if (pte_store != NULL)
+		*pte_store = pte_va;
+
+	//            +----------+
+	//            |   pte    | ----> some page
+	// pte_va --> +----------+
+	return pa2page(PTE_ADDR(*pte_va));
 }
 
 //
@@ -489,7 +614,19 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 void
 page_remove(pde_t *pgdir, void *va)
 {
-	// Fill this function in
+	pte_t *pte = NULL;
+	pte_t **pte_store = &pte;
+	struct PageInfo *va_pi = page_lookup(pgdir, va, pte_store);
+
+	if(! va_pi)
+		return;
+	 
+	page_decref(va_pi);
+
+	if (pte)
+		*pte = 0x0;
+
+	tlb_invalidate(pgdir, va);
 }
 
 //
