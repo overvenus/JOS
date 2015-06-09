@@ -102,23 +102,18 @@ boot_alloc(uint32_t n)
 
 	// We are alreadly using kernel virtual address, b/c `end`is a virtual
 	// address.
-	char *retaddr = nextfree;
+	result = nextfree;
 
 	if (! n)
-		return retaddr;
+		return result;
 
-	// Quick and dity way of diving PGSIZE, 2^12.
-	nextfree += PGSIZE * (n >> 12);
-
-	// check whether it needs more memory or not.
-	if (n & 0xfff)
-		nextfree += PGSIZE;
+	nextfree += ((ROUNDUP(n, PGSIZE)) / PGSIZE) * PGSIZE;
 
 	// TODO: Out of memory
 	// if ((int)nextfree > ?)
 	// 	panic("boot_alloc, out of memory!");
 
-	return retaddr;
+	return result;
 }
 
 // Set up a two-level page table:
@@ -192,6 +187,11 @@ mem_init(void)
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
+	boot_map_region(kern_pgdir,
+	                UPAGES,
+	                ROUNDUP((sizeof(struct PageInfo) * npages), PGSIZE),
+	                PADDR(pages),
+	                PTE_U|PTE_P);
 
 	//////////////////////////////////////////////////////////////////////
 	// Map the 'envs' array read-only by the user at linear address UENVS
@@ -212,6 +212,11 @@ mem_init(void)
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
+	boot_map_region(kern_pgdir,
+	                KSTACKTOP-KSTKSIZE,
+	                ROUNDUP(KSTKSIZE, PGSIZE),
+	                PADDR(bootstack),
+	                PTE_W|PTE_P);
 
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
@@ -221,6 +226,11 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
+	boot_map_region(kern_pgdir,
+	                KERNBASE,
+	                ROUNDUP(0xFFFFFFFF-KERNBASE, PGSIZE),
+	                0,
+	                PTE_W|PTE_P);
 
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
@@ -314,6 +324,7 @@ page_init(void)
 
 	// physical page 0
 	pages[0].pp_ref = 1;
+	pages[0].pp_link = NULL;
 
 	// [PGSIZE, npages_basemem * PGSIZE)
 	for (i = 1; i < npages_basemem; i++) {
@@ -326,10 +337,11 @@ page_init(void)
 	// allocted memory by boot_alloc()  ignore
 	size_t nextfree = (size_t)boot_alloc(0);
 	size_t next_index = (size_t)PADDR((void *)nextfree) >> 12;
-
-	for (i = npages_basemem; i < next_index; ++i)
-		// Has been used by kernel and pagings
+	for (i = npages_basemem; i < next_index; ++i){
+		// Has been used by IO, kernel and pagings
 		pages[i].pp_ref = 1;
+		pages[i].pp_link = NULL;
+	}
 
 	for (i = next_index; i < npages; i++) {
 		pages[i].pp_ref = 0;
@@ -423,9 +435,9 @@ page_decref(struct PageInfo* pp)
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
-	pde_t present = pgdir[PDX(va)] & PTE_P;
+	pde_t *pde = &pgdir[PDX(va)];
 
-	if (! present) {
+	if (! (*pde & PTE_P)) {
 		// The relevant page table page might not exist yet.
 
 		if (! create)
@@ -440,13 +452,9 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 
 		pt_pi->pp_ref += 1;
 		physaddr_t p_pa = page2pa(pt_pi);
-		pgdir[PDX(va)] = p_pa | PTE_P;
-
-		// The new table virtual address.
-		// physaddr_t pt_phy = page2pa(pt_pi);
-		// return (pte_t *)KADDR(pt_phy);
+		*pde = p_pa | PTE_P;
 	}
-	physaddr_t pt_phy = PTE_ADDR(pgdir[PDX(va)]);
+	physaddr_t pt_phy = PTE_ADDR(*pde);
 
 	pte_t *pt_virt = (pte_t *)KADDR(pt_phy);
 
@@ -467,16 +475,28 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
-	pte_t *pte_va = pgdir_walk(pgdir, (void *)va, 1);
+	if (va & 0xFFF)
+		panic("va is not page-aligned!");
+	if (pa & 0xFFF)
+		panic("pa id not page-aligned!");
+	if (size%PGSIZE)
+		panic("size is a multiple of PGSIZE!");
+
 	size_t pages_num = size / PGSIZE;
-	while(pages_num) {
-
+	pte_t *pte_va;
+	do {
+		pte_va = pgdir_walk(pgdir, (void *)va, 1);
 		*pte_va = pa | perm | PTE_P;
-
+		// change to corresponding PDE
+		if (perm & PTE_U)
+			pgdir[PDX(va)] |= PTE_U;
+		if (perm & PTE_W)
+			pgdir[PDX(va)] |= PTE_W;
+		va += PGSIZE;
 		pa += PGSIZE;
-		pte_va++;
 		pages_num--;
-	}
+		
+	} while(pages_num);
 }
 
 //
@@ -562,9 +582,11 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 
 	present_same:
 		*va_pte = pp_pa | perm | PTE_P;
-		if (perm | PTE_U)
+		if (perm & PTE_U)
 			// Changes to User Table
 			pgdir[PDX(va)] |= PTE_U;
+		if (perm & PTE_W)
+			pgdir[PDX(va)] |= PTE_W;
 
 	return 0;
 }
