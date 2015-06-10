@@ -7,3 +7,47 @@ Q1: Assuming that the following JOS kernel code is correct, what type
 A1: uintptr_t. All pointers in C are virtual address, thus `vaule` is a
     virtual address, and x means the virtual address of `*vaule`.
 
+Q2: What entries (rows) in the page directory have been filled in at this
+    point? What addresses do they map and where do they point? In other
+    words, fill out this table as much as possible:
+A2:
+	Entry    Base Virtual Address    Points to (logically):
+	 1023              0xFFF00000    Page table for top 4MB of phys memory
+	 1022              0xFFB00000    Page table for next 4MB of phys memory
+	  976              0XF0400000    Page table for PageInfo
+	    .                     ...    ...
+	  961              0XF0400000    Page table for paggings and PageInfo
+	  960              0xF0000000    Page table for kernel, same as entry_pgtable
+	    .                     ...    ...
+	  957              0xEF400000    Page table for paggings
+	    .                     ...    
+	    2              0x00800000    Page for users
+	    1              0x00400000    Page for users
+	    0              0x00000000    [see next question]
+
+Q3: We have placed the kernel and user environment in the same address space.
+    Why will user programs not be able to read or write the kernel's memory?
+    What specific mechanisms protect the kernel memory?
+A3: The 'User\Supervisor' bit, if this bit does not set, and a user try to 
+    acsess it, MMU genrate page falut.
+
+Q4: What is the maximum amount of physical memory that this operating system
+    can support? Why?
+A4: 4GiB, 1024*1024*1024*4byte. 	2^32.
+
+Q5: How much space overhead is there for managing memory, if we actually had
+    the maximum amount of physical memory? How is this overhead broken down?
+A5: 101 pages. kern_pgdir, 1 page; Pagetables, 67 pages; PageInfo, 33 pages.
+    Maximum:1160KiB, PageTables: (4GiB/4KiB) * 1Byte + 4 KiB; PageInfo: 33*4KiB
+
+Q6: Revisit the page table setup in kern/entry.S and kern/entrypgdir.c.
+    Immediately after we turn on paging, EIP is still a low
+    number (a little over 1MB). At what point do we transition to running
+    at an EIP above KERNBASE? What makes it possible for us to continue
+    executing at a low EIP between when we enable paging and when we begin
+    running at an EIP above KERNBASE? Why is this transition necessary?
+A6: 
+	mov	$relocated, %eax
+	jmp	*%eax  <----after this instruction, we are in high address.
+    In the entrypgdir.c the PD[0] maps to lowest 4MiB of the pyhsical address.
+ 
