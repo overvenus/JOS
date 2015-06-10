@@ -188,6 +188,8 @@ mem_init(void)
 	                PADDR(pages),
 	                PTE_U|PTE_P);
 
+	cprintf("Total PageInfo: 0X%08x\n",
+	 ROUNDUP((sizeof(struct PageInfo) * npages), PGSIZE));
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
 	// stack.  The kernel stack grows down from virtual address KSTACKTOP.
@@ -570,7 +572,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	present_same:
 		*va_pte = pp_pa | perm | PTE_P;
 		if (perm & PTE_U)
-			// Changes to User Table
+			// Commits to User Table
 			pgdir[PDX(va)] |= PTE_U;
 		if (perm & PTE_W)
 			pgdir[PDX(va)] |= PTE_W;

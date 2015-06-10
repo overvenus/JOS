@@ -24,7 +24,23 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
-	{ "backtrace", "Backtrace from current function to the end of init()", mon_backtrace},
+	{ 
+		"backtrace",
+		"Backtrace from current function to the end of init()",
+		mon_backtrace
+	},
+	{
+		"showmappings",
+		"Display the physical page mappings and corresponding"
+		"permission bits that\napply to the pages",
+		mon_show_mappings
+	},
+	{
+		"smp",
+		"Display the physical page mappings and corresponding"
+		"permission bits that\napply to the pages",
+		mon_show_mappings
+	},
 };
 #define NCOMMANDS (sizeof(commands)/sizeof(commands[0]))
 
@@ -98,7 +114,20 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	return 0;
 }
 
-
+int
+mon_show_mappings(int argc, char **argv, struct Trapframe *tf)
+{
+	// TODO: complete this function, `strtol` might be useful.
+	extern pde_t *kern_pgdir;
+	cprintf("kern_pgdir: 0x%08x\n", kern_pgdir);
+	cprintf("%d\n", argc);
+	int i;
+	for (i = 0; i < argc; i++) {
+		uintptr_t addr = ROUNDDOWN(*argv[i]);
+		cprintf("%s\n", *argv);
+	}
+	return 0;
+}
 
 /***** Kernel monitor command interpreter *****/
 
