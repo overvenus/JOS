@@ -347,6 +347,22 @@ run-%-nox: prep-% pre-qemu
 run-%: prep-% pre-qemu
 	$(QEMU) $(QEMUOPTS)
 
+
+trun-%-nox-gdb: prep-% pre-qemu
+	$(QEMU) -nographic $(QEMUOPTS) -S $(QEMUMONITOR)
+
+trun-%-gdb: prep-% pre-qemu
+	$(QEMU) $(QEMUOPTS) -S $(QEMUMONITOR)
+
+trun-%-nox: prep-% pre-qemu
+	$(QEMU) -nographic $(QEMUOPTS) $(QEMUMONITOR)
+
+trun-%: prep-% pre-qemu
+	$(QEMU) $(QEMUOPTS) $(QEMUMONITOR)
+
+
+
+
 # This magic automatically generates makefile dependencies
 # for header files included from C source files we compile,
 # and keeps those dependencies up-to-date every time we recompile.
