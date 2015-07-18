@@ -47,9 +47,69 @@
  * Lab 3: Your code here for generating entry points for the different traps.
  */
 
+TRAPHANDLER_NOEC(vector0, 0)  # divide error
+TRAPHANDLER_NOEC(vector1, 1)  # debug exceptions
+TRAPHANDLER_NOEC(vector2, 2)  # NMI interrupt
+TRAPHANDLER_NOEC(vector3, 3)  # breakpoint exceptions
+TRAPHANDLER_NOEC(vector4, 4)  # overflow exceptions
+TRAPHANDLER_NOEC(vector5, 5)  # ROUND range exceed exceptions
+TRAPHANDLER_NOEC(vector6, 6)  # invalid opcode exceptions
+TRAPHANDLER_NOEC(vector7, 7)  # device not avaolable exceptions
+TRAPHANDLER(vector8, 8)  # double fault exceptions
+TRAPHANDLER_NOEC(vector9, 9)  # coprocessor segments overrun
+TRAPHANDLER(vector10, 10)  # invalid TSS exceptions
+TRAPHANDLER(vector11, 11)  # segments not present
+TRAPHANDLER(vector12, 12)  # stack fault exceptions
+TRAPHANDLER(vector13, 13)  # general protection exceptions
+TRAPHANDLER(vector14, 14)  # page fault exceptions
+TRAPHANDLER(vector15, 15)  # reserved
+TRAPHANDLER_NOEC(vector16, 16)  #FPU error
+TRAPHANDLER(vector17, 17)  #alignment check
+TRAPHANDLER_NOEC(vector18, 18)  # machine check
+TRAPHANDLER_NOEC(vector19, 19)  # SIMD FP exceptions
+# 20 ~ 31 reserved
+# 32 ~ 255 user defined interrupts
 
 
 /*
  * Lab 3: Your code here for _alltraps
  */
+.globl _alltraps
+_alltraps:
+	# Build trap frame.
+	pushl %ds
+	pushl %es
+	pushal
 
+	# Set up data and per-cpu segments.
+	movw $GD_KD, %ax
+	movw %ax, %ds
+	movw %ax, %es
+
+	# Call trap(tf), where tf=%esp
+	pushl %esp
+	call trap
+
+.data
+.globl vector_table
+vector_table:
+	.long vector0
+	.long vector1
+	.long vector2
+	.long vector3
+	.long vector4
+	.long vector5
+	.long vector6
+	.long vector7
+	.long vector8
+	.long vector9
+	.long vector10
+	.long vector11
+	.long vector12
+	.long vector13
+	.long vector14
+	.long vector15
+	.long vector16
+	.long vector17
+	.long vector18
+	.long vector19

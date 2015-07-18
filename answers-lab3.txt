@@ -1,0 +1,41 @@
+Q1: What is the purpose of having an individual handler function for each
+    exception/interrupt? (i.e., if all exceptions/interrupts were delivered
+    to the same handler, what feature that exists in the current
+    implementation could not be provided?)
+
+A1: Each `int n` has different defintion and behaves differently, some push
+    a error number to stack, and others not, some be called by page fault
+    some by system call.
+
+Q2: Did you have to do anything to make the user/softint program behave
+    correctly? The grade script expects it to produce a general protection
+    fault (trap 13), but softint's code says int $14. Why should this produce
+    interrupt vector 13? What happens if the kernel actually allows softint's
+    int $14 instruction to invoke the kernel's page fault handler (which is
+    interrupt vector 14)?
+
+A2:
+
+> Chapter 17 -- 80386 Instruction Set
+> INT/INTO -- Call to Interrupt Procedure
+>
+> PROTECTED-MODE:
+>    Interrupt vector must be within IDT table limits,
+>       else #GP(vector number * 8+2+EXT);
+>    Descriptor AR byte must indicate interrupt gate, trap gate, or task gate,
+>       else #GP(vector number * 8+2+EXT);
+>    IF software interrupt (* i.e. caused by INT n, INT 3, or INTO *)
+>    THEN
+>       IF gate descriptor DPL < CPL
+>       THEN #GP(vector number * 8+2+EXT);
+>       FI;
+>    FI;
+>    Gate must be present, else #NP(vector number * 8+2+EXT);
+>    IF trap gate OR interrupt gate
+>    THEN GOTO TRAP-GATE-OR-INTERRUPT-GATE;
+>    ELSE GOTO TASK-GATE;
+>    FI;
+
+If kernel allow softint 14, user program may entry kernel mode and execute
+handlers as wishes. Kernel may handle faults which even exist, that may be
+danger.

@@ -66,6 +66,16 @@ trap_init(void)
 
 	// LAB 3: Your code here.
 
+	extern uint32_t vector_table[];
+
+	int i;
+	for (i = 0; i < 20; i++) {
+		// Exception 0~19
+		cprintf("vector%d: 0x%08x\n", i, vector_table[i]);
+		SETGATE(idt[i], 1, GD_KT, vector_table[i], 0);
+	}
+
+
 	// Per-CPU setup 
 	trap_init_percpu();
 }
