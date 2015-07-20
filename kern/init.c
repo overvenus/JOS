@@ -35,6 +35,9 @@ i386_init(void)
 	env_init();
 	trap_init();
 
+	// page fault in kernel
+	// cprintf("%s\n", (char *)0xAFFFFFFF);
+
 #if defined(TEST)
 	// Don't touch -- used by grading script!
 	ENV_CREATE(TEST, ENV_TYPE_USER);
