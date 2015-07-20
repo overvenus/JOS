@@ -696,7 +696,43 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
 
+	uintptr_t vi = (uintptr_t)va;
+
+	if ((uintptr_t)va > ULIM)
+		goto bad;
+
+	// Last page
+	uintptr_t ve = ROUNDUP(((uintptr_t)va + len), PGSIZE);
+
+	pte_t *p;
+	for (; vi <= ve; vi += PGSIZE) {
+		p = pgdir_walk(env->env_pgdir, (void *)vi, 0);
+
+		// present?
+		if (! (uintptr_t)p)
+			goto bad;
+
+		// user page?
+		if (! ((*p) & PTE_U))
+			goto bad;
+
+		// writable?
+		//    R   W
+		// R  V   V
+		// W  X   V
+		if ((perm & PTE_W) && (! (*p & PTE_W)))
+			goto bad;
+	}
+
 	return 0;
+
+	bad:
+	if (vi == (uintptr_t)va)
+		user_mem_check_addr = vi;
+	else
+		user_mem_check_addr = ROUNDDOWN(vi, PGSIZE);
+
+	return -E_FAULT;
 }
 
 //

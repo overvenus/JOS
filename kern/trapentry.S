@@ -47,27 +47,28 @@
  * Lab 3: Your code here for generating entry points for the different traps.
  */
 
-TRAPHANDLER_NOEC(vector0, 0)  # divide error
-TRAPHANDLER_NOEC(vector1, 1)  # debug exceptions
-TRAPHANDLER_NOEC(vector2, 2)  # NMI interrupt
-TRAPHANDLER_NOEC(vector3, 3)  # breakpoint exceptions
-TRAPHANDLER_NOEC(vector4, 4)  # overflow exceptions
-TRAPHANDLER_NOEC(vector5, 5)  # ROUND range exceed exceptions
-TRAPHANDLER_NOEC(vector6, 6)  # invalid opcode exceptions
-TRAPHANDLER_NOEC(vector7, 7)  # device not avaolable exceptions
-TRAPHANDLER(vector8, 8)  # double fault exceptions
-TRAPHANDLER_NOEC(vector9, 9)  # coprocessor segments overrun
-TRAPHANDLER(vector10, 10)  # invalid TSS exceptions
-TRAPHANDLER(vector11, 11)  # segments not present
-TRAPHANDLER(vector12, 12)  # stack fault exceptions
-TRAPHANDLER(vector13, 13)  # general protection exceptions
-TRAPHANDLER(vector14, 14)  # page fault exceptions
-TRAPHANDLER(vector15, 15)  # reserved
-TRAPHANDLER_NOEC(vector16, 16)  #FPU error
-TRAPHANDLER(vector17, 17)  #alignment check
-TRAPHANDLER_NOEC(vector18, 18)  # machine check
-TRAPHANDLER_NOEC(vector19, 19)  # SIMD FP exceptions
+TRAPHANDLER_NOEC(vector0,  T_DIVIDE )  # divide error
+TRAPHANDLER_NOEC(vector1,  T_DEBUG  )  # debug exceptions
+TRAPHANDLER_NOEC(vector2,  T_NMI    )  # NMI interrupt
+TRAPHANDLER_NOEC(vector3,  T_BRKPT  )  # breakpoint exceptions
+TRAPHANDLER_NOEC(vector4,  T_OFLOW  )  # overflow exceptions
+TRAPHANDLER_NOEC(vector5,  T_BOUND  )  # ROUND range exceed exceptions
+TRAPHANDLER_NOEC(vector6,  T_ILLOP  )  # invalid opcode exceptions
+TRAPHANDLER_NOEC(vector7,  T_DEVICE )  # device not avaolable exceptions
+TRAPHANDLER(     vector8,  T_DBLFLT )  # double fault exceptions
+TRAPHANDLER_NOEC(vector9,  T_COPROC )  # coprocessor segments overrun
+TRAPHANDLER(     vector10, T_TSS    )  # invalid TSS exceptions
+TRAPHANDLER(     vector11, T_SEGNP  )  # segments not present
+TRAPHANDLER(     vector12, T_STACK  )  # stack fault exceptions
+TRAPHANDLER(     vector13, T_GPFLT  )  # general protection exceptions
+TRAPHANDLER(     vector14, T_PGFLT  )  # page fault exceptions
+TRAPHANDLER(     vector15, T_RES    )  # reserved
+TRAPHANDLER_NOEC(vector16, T_FPERR  )  # FPU error
+TRAPHANDLER(     vector17, T_ALIGN  )  # alignment check
+TRAPHANDLER_NOEC(vector18, T_MCHK   )  # machine check
+TRAPHANDLER_NOEC(vector19, T_SIMDERR)  # SIMD FP exceptions
 # 20 ~ 31 reserved
+TRAPHANDLER_NOEC(vector_syscall, T_SYSCALL)  # 48 system call
 # 32 ~ 255 user defined interrupts
 
 
@@ -113,3 +114,6 @@ vector_table:
 	.long vector17
 	.long vector18
 	.long vector19
+	.fill 12, 4, 0  # 20~31 reserved
+	.fill 16, 4, 0  # 32~47 empty
+	.long vector_syscall  # 48

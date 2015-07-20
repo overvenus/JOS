@@ -142,6 +142,9 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 		// Make sure this memory is valid.
 		// Return -1 if it is not.  Hint: Call user_mem_check.
 		// LAB 3: Your code here.
+		if (user_mem_check(
+				curenv, usd, sizeof(struct UserStabData), PTE_U|PTE_P))
+			return -1;
 
 		stabs = usd->stabs;
 		stab_end = usd->stab_end;
@@ -150,6 +153,13 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 
 		// Make sure the STABS and string table memory is valid.
 		// LAB 3: Your code here.
+		if (user_mem_check(
+				curenv, usd->stabs, (usd->stab_end - usd->stabs), PTE_U|PTE_P))
+			return -1;
+
+		if (user_mem_check(
+				curenv, usd->stabs, (usd->stab_end - usd->stabs), PTE_U|PTE_P))
+			return -1;
 	}
 
 	// String table validity checks
@@ -205,7 +215,6 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	//	which one.
 	// Your code here.
 
-	// My code
 	// https://sourceware.org/gdb/onlinedocs/stabs.html#Line-Numbers
 	stab_binsearch(stabs, &lline, &rline, N_SLINE, addr);
 	if (lline > rline)

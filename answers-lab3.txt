@@ -39,3 +39,19 @@ A2:
 If kernel allow softint 14, user program may entry kernel mode and execute
 handlers as wishes. Kernel may handle faults which even exist, that may be
 danger.
+
+Q3. The break point test case will either generate a break point exception or
+    a general protection fault depending on how you initialized the break
+    point entry in the IDT (i.e., your call to SETGATE from trap_init). Why?
+    How do you need to set it up in order to get the breakpoint exception to
+    work as specified above and what incorrect setup would cause it to trigger
+    a general protection fault?
+
+A3. As described in answer2, we need set DPL 3, in order to break from
+    user mode via soft int.
+
+Q4. What do you think is the point of these mechanisms, particularly in light
+    of what the user/softint test program does?
+
+A4. Good, also bad! The good part is that it can explicit enable and disable 
+    some soft int via DPL, it's good for security. But also confuse people.
