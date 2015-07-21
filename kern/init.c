@@ -41,6 +41,9 @@ i386_init(void)
 	env_init();
 	trap_init();
 
+	// page fault in kernel
+	// cprintf("%s\n", (char *)0xAFFFFFFF);
+
 	// Lab 4 multiprocessor initialization functions
 	mp_init();
 	lapic_init();

@@ -73,6 +73,29 @@ trap_init(void)
 
 	// LAB 3: Your code here.
 
+	// see trapentry.S
+	extern uint32_t vector_table[];
+
+	int i;
+	for (i = 0; i < 20; i++) {
+		// Exception 0~19
+		// cprintf("vector%d: 0x%08x\n", i, vector_table[i]);
+		SETGATE(idt[i], 1, GD_KT, vector_table[i], 0);
+	}
+	// Over write DPL of `int 3`, in order to break from user mode.
+	SETGATE(idt[3], 1, GD_KT, vector_table[3], 3);
+
+	// Trap for system call 
+	SETGATE(idt[T_SYSCALL], 1, GD_KT, vector_table[T_SYSCALL], 3);
+
+	// Debug
+	// vector_syscall[] == vector_table[20]
+	// vector_syscall[] != vector_syscall
+	extern uint32_t vector_syscall[];
+	cprintf("vector_syscall[]: 0x%08x\n", vector_syscall);
+	cprintf("syscall in idt, virtual address: 0x%08x\n", 
+		((idt[T_SYSCALL].gd_off_31_16)<<16) + idt[T_SYSCALL].gd_off_15_0);
+
 	// Per-CPU setup 
 	trap_init_percpu();
 }
@@ -173,6 +196,28 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
+	switch (tf->tf_trapno) {
+
+		case T_BRKPT:  // breakpoint exception
+			breakpoint_exception_handler(tf);
+			return;
+
+		case T_PGFLT:  // page fault
+			page_fault_handler(tf);
+			return;
+
+		case T_SYSCALL:
+			(tf->tf_regs).reg_eax =	syscall(
+				(tf->tf_regs).reg_eax,
+				(tf->tf_regs).reg_edx,
+				(tf->tf_regs).reg_ecx,
+				(tf->tf_regs).reg_ebx,
+				(tf->tf_regs).reg_edi,
+				(tf->tf_regs).reg_esi
+			);
+			return;
+	}
+
 
 	// Handle spurious interrupts
 	// The hardware sometimes raises these because of noise on the
@@ -268,6 +313,10 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 
 	// LAB 3: Your code here.
+	// kernel-mode, see gdt table
+	// GD_KT: 0x8, (0x8 & 3) = 0
+	if ((tf->tf_cs & 3) == 0)
+		panic("Kernel page fault!");
 
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
@@ -309,3 +358,7 @@ page_fault_handler(struct Trapframe *tf)
 	env_destroy(curenv);
 }
 
+void
+breakpoint_exception_handler(struct Trapframe *tf) {
+	monitor(tf);
+}
