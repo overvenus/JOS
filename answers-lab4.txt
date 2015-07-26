@@ -1,0 +1,53 @@
+Q1. Compare kern/mpentry.S side by side with boot/boot.S. Bearing in mind
+    that kern/mpentry.S is compiled and linked to run above KERNBASE just
+    like everything else in the kernel, what is the purpose of macro
+    MPBOOTPHYS? Why is it necessary in kern/mpentry.S but not 
+    in boot/boot.S? In other words, what could go wrong if it were 
+    omitted in kern/mpentry.S? 
+    Hint: recall the differences between the link address and the load
+    address that we have discussed in Lab 1.
+
+A1. Each CPU has it own cr0, When the AP setup, it start from real mode
+    without Paging, which means it operates pyhsical memory directly.
+    `mpentry.S` linked in *high address*, `gdt` and `gdtdesc` be placed
+    in code segment near the symbol `mpentry_start`, we can calculate
+    absolute addresses of its symbols by `(s) - mpentry_start`.
+    Plus, this piece of code be write to `MPENTRY_PADDR`, we can get the
+    pyhsical address by `+ MPENTRY_PADDR`.
+    it not necessary in `boot.S`, because `boot.S` will be execute in
+    physical address `0x0`, `RELOC(x)` will be fine.
+
+Q2. It seems that using the big kernel lock guarantees that only one CPU can
+    run the kernel code at a time. Why do we still need separate kernel
+    stacks for each CPU? Describe a scenario in which using a shared kernel
+    stack will go wrong, even with the protection of the big kernel lock.
+
+A2. Since CPUs have thire own `esp`. When they entry kernel mode, they write
+    data to kernel stack, so it is very likely to over-write the stack.
+    Of course we can use one kernel stack, as long as we guarantee CPUs `esp`
+    points to the same address every time they leave kernel mode.
+    But there are several function *DO NOT* return, i.e., `sched_halt`,
+    CPU call this function, and leave kernel mode without cleaning `esp`,
+    when this CPU comes back to life, it will smash the stack.
+
+Q3. In your implementation of env_run() you should have called lcr3(). Before
+    and after the call to lcr3(), your code makes references (at least it 
+    should) to the variable e, the argument to env_run. Upon loading
+    the %cr3 register, the addressing context used by the MMU is instantly
+    changed. But a virtual address (namely e) has meaning relative to a given
+    address context--the address context specifies the physical address to
+    which the virtual address maps. Why can the pointer e be dereferenced
+    both before and after the addressing switch?
+
+A3. All envs are be allcoed in `mem_init()`, and be map to `kern_pgdir`.
+    `env_pgdir` are copyed from `kern_pgdir`, so they all have the same map
+    to `envs`.
+
+Q4. Whenever the kernel switches from one environment to another, it must
+    ensure the old environment's registers are saved so they can be
+    restored properly later. Why? Where does this happen?
+
+A4. There are several situation cause environment switching. And they will
+    go through `_alltrap`. Let's take `sys_yield()` for a example, it will
+    trigger a *system call trap*, and the upcoming `_alltrap` saves 
+    registers.

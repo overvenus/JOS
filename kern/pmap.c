@@ -293,6 +293,18 @@ mem_init_mp(void)
 	//
 	// LAB 4: Your code here:
 
+	uintptr_t stacktop = (uintptr_t)KSTACKTOP;
+	int i;
+	for (i = 0; i < NCPU; i++) {
+		boot_map_region(kern_pgdir,
+			stacktop - KSTKSIZE,
+			KSTKSIZE,
+			PADDR(&percpu_kstacks[i]),
+			PTE_W|PTE_P);
+
+		stacktop -= KSTKSIZE;
+		stacktop -= KSTKGAP;
+	}
 }
 
 // --------------------------------------------------------------
@@ -370,6 +382,12 @@ page_init(void)
 
 	// [PGSIZE, npages_basemem * PGSIZE)
 	for (i = 1; i < npages_basemem; i++) {
+		if (i == PGNUM(MPENTRY_PADDR)) {
+			// Reserved for AP setup code
+			pages[i].pp_ref = 1;
+			pages[i].pp_link = NULL;
+			continue;
+		}
 		pages[i].pp_ref = 0;
 		pages[i].pp_link = page_free_list;
 		page_free_list = &pages[i];
@@ -737,7 +755,13 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
-	panic("mmio_map_region not implemented");
+	if ((base+size) > MMIOLIM)
+		panic("mmio reservation overflow!");
+
+	size = ROUNDUP(size, PGSIZE);
+	boot_map_region(kern_pgdir, base, size, pa, PTE_PWT|PTE_PCD|PTE_W);
+	base += size;
+	return (void *)(base - size);
 }
 
 static uintptr_t user_mem_check_addr;
