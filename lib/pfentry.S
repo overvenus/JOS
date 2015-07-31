@@ -66,17 +66,43 @@ _pgfault_upcall:
 	//
 	// LAB 4: Your code here.
 
+	// sz = sizeof(struct UTrapframe);  // 52
+	// &utf_eip = ((char *) utf) + (sz - 4);
+
+	// Handle the recursive case.
+	// new_trap_time_esp = trap_time_esp - 4, for storing trap_time_eip.
+	movl 48(%esp), %eax
+	subl $4, %eax           // 4 byte, storing eip.
+	movl %eax, 48(%esp)
+
+	// move trap_time_eip to new_trap_time_esp, because exception stack and 
+	// user stack are using the same address sapce, so this will work in
+	// both user stack and exception stack
+	movl 40(%esp), %ebx
+	movl %ebx, (%eax)
+
 	// Restore the trap-time registers.  After you do this, you
 	// can no longer modify any general-purpose registers.
 	// LAB 4: Your code here.
+	addl $4, %esp  // pop utf_fault_va
+	addl $4, %esp  // pop utf_err
+	popal
 
 	// Restore eflags from the stack.  After you do this, you can
 	// no longer use arithmetic operations or anything else that
 	// modifies eflags.
 	// LAB 4: Your code here.
+	addl $4, %esp  // pop utf_eip
+	popfl
 
 	// Switch back to the adjusted trap-time stack.
 	// LAB 4: Your code here.
+	popl %esp
 
 	// Return to re-execute the instruction that faulted.
 	// LAB 4: Your code here.
+	// Return address was writed in trap.c
+
+	// This piece of code be executed after env_run(), we are running in
+	// user mode, with the user `pgdir` and `cs`.
+	ret

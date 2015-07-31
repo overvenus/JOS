@@ -358,6 +358,52 @@ page_fault_handler(struct Trapframe *tf)
 
 	// LAB 4: Your code here.
 
+	// cprintf("%d\n", sizeof(struct Env));
+	// cprintf("%d\n", sizeof(struct UTrapframe));
+
+	// No page fault upcall
+	if (curenv->env_pgfault_upcall == NULL)
+		goto bad;
+
+	// Kernel space can't write to it
+	if (fault_va > ULIM)
+		goto bad;
+
+	uintptr_t stacktop;
+	if (tf->tf_esp > (UXSTACKTOP - PGSIZE)
+	        && tf->tf_esp < (UXSTACKTOP - 1)) {
+
+		// 4 byte for saving eip,
+		// will be ret in pfentry.S
+		stacktop = (uintptr_t)tf->tf_esp - 4;
+
+	} else {
+		// The size of all envs is 1024 * 124 byte,
+		// so top of UXSTACKTOP always free.
+		stacktop = UXSTACKTOP;
+	}
+
+	// Set up page fault frame
+	struct UTrapframe *utf =
+	        (struct UTrapframe *)(stacktop - sizeof(struct UTrapframe));
+
+	user_mem_assert(curenv,
+	    (void *)utf,
+	    sizeof(struct UTrapframe),
+	    PTE_U|PTE_W|PTE_P);
+
+	utf->utf_fault_va = fault_va;
+	utf->utf_err = tf->tf_err;
+	utf->utf_regs = tf->tf_regs;
+	utf->utf_eip = tf->tf_eip;
+	utf->utf_eflags = tf->tf_eflags;
+	utf->utf_esp = tf->tf_esp;
+
+	tf->tf_esp = (uintptr_t)utf;
+	tf->tf_eip = (uintptr_t)curenv->env_pgfault_upcall;
+	env_run(curenv);
+
+	bad:
 	// Destroy the environment that caused the fault.
 	cprintf("[%08x] user fault va %08x ip %08x\n",
 		curenv->env_id, fault_va, tf->tf_eip);
