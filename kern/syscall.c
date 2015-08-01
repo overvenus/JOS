@@ -201,9 +201,6 @@ sys_page_alloc(envid_t envid, void *va, int perm)
 	if (pp == NULL)
 		return -E_NO_MEM;
 
-	perm |= PTE_AVAIL;
-	perm |= PTE_W;
-
 	if ((r = page_insert(e->env_pgdir, pp, va, perm)) < 0) {
 		page_free(pp);
 		return r;
@@ -265,6 +262,10 @@ sys_page_map(envid_t srcenvid, void *srcva,
 	if (pte == NULL)
 		return -E_INVAL;
 
+	//   s  W  R
+	// d
+	// W    V  X
+	// R    V  V
 	if (perm & PTE_W) {
 		if (!(*pte & PTE_W))
 			return -E_INVAL;
@@ -272,9 +273,6 @@ sys_page_map(envid_t srcenvid, void *srcva,
 
 	if (pp == NULL)
 		return -E_NO_MEM;
-
-	perm |= PTE_AVAIL;
-	perm |= PTE_W;
 
 	if ((r = page_insert(de->env_pgdir, pp, dstva, perm)) < 0)
 		return r;
