@@ -30,14 +30,14 @@ set_pgfault_handler(void (*handler)(struct UTrapframe *utf))
 		// First time through!
 		// LAB 4: Your code here.
 
-		r = sys_page_alloc(thisenv->env_id,
+		r = sys_page_alloc(0,
 		        (void *)(UXSTACKTOP-PGSIZE),
 		        PTE_U|PTE_W|PTE_P);
 
 		if (r < 0)
 			goto bad;
 
-		r = sys_env_set_pgfault_upcall(thisenv->env_id,
+		r = sys_env_set_pgfault_upcall(0,
 		        (void*)_pgfault_upcall);
 		
 		if (r < 0)
