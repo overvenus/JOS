@@ -79,11 +79,7 @@ pgfault(struct UTrapframe *utf)
 
 	// system call #2
 	// Map the temporary page to fault address.
-	r = sys_page_map(0,
-	        PFTEMP,
-	        0,
-	        addr,
-	        PTE_W|PTE_U|PTE_P);
+	r = sys_page_map(0, PFTEMP, 0, addr, PTE_W|PTE_U|PTE_P);
 
 	if (r < 0)
 		panic("User pagefault! %e", r);
@@ -173,7 +169,7 @@ fork(void)
 
 	// exofork return 0 to child
 	if (eid == 0) {
-		thisenv = &envs[sys_getenvid()];
+		thisenv = &envs[ENVX(sys_getenvid())];
 		goto good;
 	}
 

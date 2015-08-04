@@ -77,10 +77,11 @@ trap_init(void)
 	extern uint32_t vector_table[];
 
 	int i;
-	for (i = 0; i < 20; i++) {
+	for (i = 0; i < T_SYSCALL; i++) {
 		// Exception 0~19
-		// cprintf("vector%d: 0x%08x\n", i, vector_table[i]);
-		SETGATE(idt[i], 1, GD_KT, vector_table[i], 0);
+		// Set to interrupt gate, so that
+		// kernel never be interrupt by external interrupts.
+		SETGATE(idt[i], 0, GD_KT, vector_table[i], 0);
 	}
 	// Over write DPL of `int 3`, in order to break from user mode.
 	SETGATE(idt[3], 0, GD_KT, vector_table[3], 3);
@@ -233,6 +234,11 @@ trap_dispatch(struct Trapframe *tf)
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
+		lapic_eoi();
+		sched_yield();
+		return;
+	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);

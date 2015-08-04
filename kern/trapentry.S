@@ -68,10 +68,27 @@ TRAPHANDLER_NOEC(vector16, T_FPERR  )  # FPU error
 TRAPHANDLER(     vector17, T_ALIGN  )  # alignment check
 TRAPHANDLER_NOEC(vector18, T_MCHK   )  # machine check
 TRAPHANDLER_NOEC(vector19, T_SIMDERR)  # SIMD FP exceptions
+# 
 # 20 ~ 31 reserved
-TRAPHANDLER_NOEC(vector_syscall, T_SYSCALL)  # 48 system call
-# 32 ~ 255 user defined interrupts
-
+# 
+TRAPHANDLER_NOEC(vector_irq_timer, IRQ_OFFSET + IRQ_TIMER)
+TRAPHANDLER_NOEC(vector_irq_kbd, IRQ_OFFSET + IRQ_KBD)
+TRAPHANDLER_NOEC(vector_irq_2, IRQ_OFFSET + 2)
+TRAPHANDLER_NOEC(vector_irq_3, IRQ_OFFSET + 3)
+TRAPHANDLER_NOEC(vector_irq_serial, IRQ_OFFSET + IRQ_SERIAL)
+TRAPHANDLER_NOEC(vector_irq_5, IRQ_OFFSET + 5)
+TRAPHANDLER_NOEC(vector_irq_6, IRQ_OFFSET + 6)
+TRAPHANDLER_NOEC(vector_irq_spurious, IRQ_OFFSET + IRQ_SPURIOUS)
+TRAPHANDLER_NOEC(vector_irq_8, IRQ_OFFSET + 7)
+TRAPHANDLER_NOEC(vector_irq_9, IRQ_OFFSET + 8)
+TRAPHANDLER_NOEC(vector_irq_10, IRQ_OFFSET + 9)
+TRAPHANDLER_NOEC(vector_irq_11, IRQ_OFFSET + 10)
+TRAPHANDLER_NOEC(vector_irq_12, IRQ_OFFSET + 11)
+TRAPHANDLER_NOEC(vector_irq_13, IRQ_OFFSET + 12)
+TRAPHANDLER_NOEC(vector_irq_ide, IRQ_OFFSET + 13)
+TRAPHANDLER_NOEC(vector_irq_15, IRQ_OFFSET + IRQ_IDE)
+# 48 system call
+TRAPHANDLER_NOEC(vector_syscall, T_SYSCALL)
 
 /*
  * Lab 3: Your code here for _alltraps
@@ -115,6 +132,21 @@ vector_table:
 	.long vector17
 	.long vector18
 	.long vector19
-	.fill 12, 4, 0  # 20~31 reserved
-	.fill 16, 4, 0  # 32~47 empty
-	.long vector_syscall  # 48
+	.fill 12, 4, 0            # 20~31 reserved
+	.long vector_irq_timer    # 32 IRQ_OFFSET
+	.long vector_irq_kbd
+	.long vector_irq_2
+	.long vector_irq_3
+	.long vector_irq_serial
+	.long vector_irq_5
+	.long vector_irq_6
+	.long vector_irq_spurious
+	.long vector_irq_8
+	.long vector_irq_9
+	.long vector_irq_10
+	.long vector_irq_11
+	.long vector_irq_12
+	.long vector_irq_13
+	.long vector_irq_ide
+	.long vector_irq_15       # 47 IRQ_OFSSET + 15
+	.long vector_syscall      # 48 system call
