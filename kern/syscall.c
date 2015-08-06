@@ -352,7 +352,64 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_try_send not implemented");
+	int r;
+	struct Env *e;
+	struct PageInfo *pp;
+	pte_t *pte;
+
+	if (srcva == SYS_IPC_NOPAGE) {
+		perm = 0;
+		goto src_no_page;                 // Source sends NO page.
+	}
+
+	if ((uintptr_t)srcva >= UTOP          // NOT a user page!
+	    || PGOFF(srcva) != 0              // NOT page-aligned!
+	    || (! (perm & (PTE_P | PTE_U)))   // perm is inappropriate!
+	   ) {
+		return -E_INVAL;
+	}
+
+	pp = page_lookup(curenv->env_pgdir, srcva, &pte);
+	if (pp == NULL)              // srcva is not mapped in the caller's
+	    return -E_INVAL;         // address space.
+
+	if (perm & PTE_W) {          // read-only in the
+		if (!(*pte & PTE_W))     // current environment's address space.
+			return -E_INVAL;
+	}
+
+src_no_page:
+	r = envid2env(envid, &e, false);
+	if (r < 0) {
+		return r;                // An error occer!
+	}
+
+	if (e->env_ipc_recving == false) {
+		return -E_IPC_NOT_RECV;  // NOT currently blocked!
+	}
+
+	if (e->env_ipc_dstva == SYS_IPC_NOPAGE)
+		goto target_no_page;               // target env wants NO page.
+
+	r = sys_page_map(curenv->env_id, srcva,
+	                 e->env_id, e->env_ipc_dstva, perm);
+	if (r < 0) {
+		return r;                // An error occer!
+	}
+
+
+target_no_page:
+	// Update target env.
+	e->env_ipc_recving = false;
+	e->env_ipc_from = curenv->env_id;
+	e->env_ipc_value = value;
+	e->env_ipc_perm = perm;
+
+	// Set the return value in user mode.
+	e->env_tf.tf_regs.reg_eax = 0;
+	e->env_status = ENV_RUNNABLE;
+
+	return 0;
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -370,8 +427,21 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_recv not implemented");
-	return 0;
+	if (dstva == SYS_IPC_NOPAGE)
+		goto no_page;
+
+	if ((uintptr_t)dstva >= UTOP    // NOT a user page!
+	    || PGOFF(dstva) != 0) {  // NOT page-aligned!
+		return -E_INVAL;
+	}
+
+	no_page:
+	curenv->env_ipc_dstva = dstva;
+	curenv->env_ipc_recving = true;
+	curenv->env_status = ENV_NOT_RUNNABLE;
+
+	sched_yield();  // BLOCKING...
+	// return value is set in sys_ipc_try_send()
 }
 
 // Dispatches to the correct kernel function, passing the arguments.
@@ -437,10 +507,13 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			break;
 
 		case SYS_ipc_try_send:
-			return 0;
+			r = (uint32_t)sys_ipc_try_send(
+			        (envid_t)a1, (uint32_t)a2, (void *)a3, (int)a4);
+			break;
 
 		case SYS_ipc_recv:
-			return 0;
+			r = (uint32_t)sys_ipc_recv((void *)a1);
+			break;
 
 		case NSYSCALLS:
 

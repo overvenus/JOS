@@ -67,4 +67,7 @@ struct Env {
 	int env_ipc_perm;		// Perm of page mapping received
 };
 
+ // A custom address represents NO page 
+#define SYS_IPC_NOPAGE ((void *)0xFFFFFFFF)
+
 #endif // !JOS_INC_ENV_H

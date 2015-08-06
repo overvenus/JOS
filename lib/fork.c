@@ -56,7 +56,7 @@ pgfault(struct UTrapframe *utf)
 		panic("User pagefault! Not present!");
 
 	if (! (PTE_T_PERM(*p) & PTE_COW))
-		panic("User pagefault! unmendable!");
+		panic("User pagefault! unmendable! No COW marked!");
 
 	// Allocate a new page, map it at a temporary location (PFTEMP),
 	// copy the data from the old page to the new page, then move the new
