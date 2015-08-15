@@ -1,0 +1,6 @@
+Q1. Do you have to do anything else to ensure that this I/O privilege setting
+    is saved and restored properly when you subsequently switch from one
+    environment to another? Why?
+
+A1. No. Eflag is saved and restored by x86 hardware during `int` and `iret`,
+    A.K.A., environment switching.

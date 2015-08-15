@@ -428,6 +428,12 @@ env_create(uint8_t *binary, enum EnvType type)
 
 	// If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
 	// LAB 5: Your code here.
+	// I/O instructions can be executed only if CPL <= IOPL
+	// See i386 Manual 8.3 Protection and I/O
+	if (type == ENV_TYPE_FS) {
+		pp_env->env_type = ENV_TYPE_FS;
+		pp_env->env_tf.tf_eflags |= FL_IOPL_3;
+	}
 }
 
 //
