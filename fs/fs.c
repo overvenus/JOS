@@ -62,7 +62,18 @@ alloc_block(void)
 	// super->s_nblocks blocks in the disk altogether.
 
 	// LAB 5: Your code here.
-	panic("alloc_block not implemented");
+	// uint32_t *bitmap;
+	// Every slot of bitmap can map 32 blocks.
+	// `i/32` is the index slot,
+	// `i%32` to find the corresponding bit.
+	int i;
+	for (i = 3; i < super->s_nblocks; i++) {
+		if (block_is_free(i)) {
+			bitmap[i/32] &= (~(1<<(i%32)));  // zero corresponding bit.
+			flush_block(bitmap);
+			return i;
+		}
+	}
 	return -E_NO_DISK;
 }
 
@@ -135,7 +146,38 @@ static int
 file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool alloc)
 {
        // LAB 5: Your code here.
-       panic("file_block_walk not implemented");
+	// My implemention guarantees *ppdeikbno == FNOT_FOUND,
+	// while filebno is not found in f.
+	int r;
+	if (f == NULL)
+		return -E_INVAL;
+	if (filebno >= (NDIRECT + NINDIRECT))
+		return -E_INVAL;
+
+	if (filebno < NDIRECT) {
+		*ppdiskbno = &(f->f_direct[filebno]);
+		return 0;
+	}
+
+	// Allocate an indirect block if necessary.
+	// f->f_indirect is block number, not an address of memory.
+	if (f->f_indirect == 0) {
+		if (alloc) {
+			if ((r = alloc_block()) < 0)
+				return -E_NO_DISK;
+			memset(diskaddr(r), FNOT_FOUND, BLKSIZE);
+			f->f_indirect = r;
+		}
+	}
+
+	filebno -= NDIRECT;
+	*ppdiskbno = &((uint32_t *)diskaddr(f->f_indirect))[filebno];
+
+	// Not found in indirect block.
+	if (**ppdiskbno == FNOT_FOUND)
+		return -E_NOT_FOUND;
+
+	return 0;
 }
 
 // Set *blk to the address in memory where the filebno'th
@@ -150,7 +192,22 @@ int
 file_get_block(struct File *f, uint32_t filebno, char **blk)
 {
        // LAB 5: Your code here.
-       panic("file_get_block not implemented");
+	int r;
+	uint32_t *blkno;
+	if ((r = file_block_walk(f, filebno, &blkno, true)) < 0) {
+		if (r != -E_NOT_FOUND)
+			return r;
+	}
+
+	// Not found in indirect block.
+	if (*blkno == FNOT_FOUND) {
+		if ((r = alloc_block()) < 0)
+			return r;
+		*blkno = r;
+	}
+
+	*blk = diskaddr(*blkno);
+	return 0;
 }
 
 // Try to find a file named "name" in dir.  If so, set *file to it.

@@ -48,6 +48,10 @@ struct File {
 #define FTYPE_REG	0	// Regular file
 #define FTYPE_DIR	1	// Directory
 
+// Block number while file is not found.
+// I choose 0, because 0 is defalut value while allocate memory.
+// And block 0 is the bootloader block, we CANT NOT touch it!
+#define FNOT_FOUND 0x0
 
 // File system super-block (both in-memory and on-disk)
 
