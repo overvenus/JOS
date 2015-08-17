@@ -263,8 +263,8 @@ sys_page_map(envid_t srcenvid, void *srcva,
 
 	struct Env *se, *de;
 	int r;
-	if (((r = envid2env(srcenvid, &se, true)) < 0)
-		|| (r = envid2env(dstenvid, &de, true) < 0)) {
+	if (((r = envid2env(srcenvid, &se, false)) < 0)
+		|| (r = envid2env(dstenvid, &de, false) < 0)) {
 
 		return r; 
 	}
@@ -400,8 +400,9 @@ src_no_page:
 		return -E_IPC_NOT_RECV;  // NOT currently blocked!
 	}
 
-	if (e->env_ipc_dstva == SYS_IPC_NOPAGE)
-		goto target_no_page;               // target env wants NO page.
+	if (e->env_ipc_dstva == SYS_IPC_NOPAGE // target wants NO page,
+		|| srcva == SYS_IPC_NOPAGE)	       // or sender has no page.
+		goto target_no_page;
 
 	r = sys_page_map(curenv->env_id, srcva,
 	                 e->env_id, e->env_ipc_dstva, perm);
