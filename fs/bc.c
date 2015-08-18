@@ -49,7 +49,7 @@ bc_pgfault(struct UTrapframe *utf)
 	//
 	// LAB 5: you code here:
 	addr = ROUNDDOWN(addr, PGSIZE);
-	r = sys_page_alloc(0, addr, PTE_SYSCALL);
+	r = sys_page_alloc(0, addr, PTE_U|PTE_W|PTE_P);
 	if (r < 0)
 		panic("allocate page failed, %e", r);
 

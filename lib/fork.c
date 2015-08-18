@@ -118,7 +118,9 @@ duppage(envid_t envid, unsigned pn)
 		panic("duppage error %e", r);
 
 	uint32_t perm = PTE_T_PERM(*p);
-	if (perm & (PTE_COW | PTE_W)) {
+	if (perm & PTE_SHARE) {
+		perm |= PTE_P | PTE_SHARE;
+	} else if (perm & (PTE_COW | PTE_W)) {
 		// Mark writable and copy-on-write page as COW
 		perm &= ~PTE_W;
 		perm |= PTE_COW | PTE_P;
