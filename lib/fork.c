@@ -46,17 +46,17 @@ pgfault(struct UTrapframe *utf)
 	//   (see <inc/memlayout.h>).
 
 	// LAB 4: Your code here.
-	if ((err & FEC_WR) != FEC_WR) {
-		panic("User pagefault! Unmendable!");
-	}
+	// if ((err & FEC_WR) != FEC_WR) {
+	// 	panic("User pagefault! Unmendable! addr: 0x%08x", addr);
+	// }
 
 	pte_t *p;
 	r = pgdir_look((pde_t *)uvpd,(pte_t *)uvpt, addr, &p);
 	if (r < 0)
-		panic("User pagefault! Not present!");
+		panic("User pagefault! Not present! addr: 0x%08x", addr);
 
 	if (! (PTE_T_PERM(*p) & PTE_COW))
-		panic("User pagefault! unmendable! No COW marked!");
+		panic("User pagefault! unmendable! No COW marked! addr: 0x%08x", addr);
 
 	// Allocate a new page, map it at a temporary location (PFTEMP),
 	// copy the data from the old page to the new page, then move the new
