@@ -120,11 +120,20 @@ mon_show_mappings(int argc, char **argv, struct Trapframe *tf)
 	// TODO: complete this function, `strtol` might be useful.
 	extern pde_t *kern_pgdir;
 	cprintf("kern_pgdir: 0x%08x\n", kern_pgdir);
-	cprintf("%d\n", argc);
 	int i;
-	for (i = 0; i < argc; i++) {
-		uintptr_t addr = ROUNDDOWN(*argv[i]);
-		cprintf("%s\n", *argv);
+	uintptr_t a;
+	pde_t pd, pt;
+	for (i = 1; i < argc; i++) {
+		// ignore the first arg.
+		a = (uintptr_t) strtol(argv[i], NULL, 16);
+		pd = kern_pgdir[a >> 22];
+		cprintf("pd: 0x%08x\n", pd);
+		pt = ((pde_t *)pd)[(a >> 12) & 0x3FF];
+		cprintf("pt: 0x%08x\n", pt);
+
+		cprintf("address %s maps to 0x%08x\n",
+		  argv[i],
+		  (pt & 0xFFFFF000) | (a & 0x00000FFF));
 	}
 	return 0;
 }
