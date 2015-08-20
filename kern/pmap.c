@@ -617,6 +617,10 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 	if (! pte_va)
 		return NULL;
 
+	// Make sure pte_va is present.
+	if (! (*pte_va & PTE_P))
+		return NULL;
+
 	if (pte_store != NULL)
 		*pte_store = pte_va;
 
