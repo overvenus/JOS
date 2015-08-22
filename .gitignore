@@ -15,4 +15,8 @@
 /lab?/
 /sol?/
 /myapi.key
+/.idea/
+CMakeLists.txt
+.tags*
+private*/
 .suf

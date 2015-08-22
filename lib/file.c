@@ -127,7 +127,8 @@ devfile_read(struct Fd *fd, void *buf, size_t n)
 	return r;
 }
 
-
+// See Fsipc in `inc/fs.h`.
+#define max_write (PGSIZE - (sizeof(int) + sizeof(size_t)))
 // Write at most 'n' bytes from 'buf' to 'fd' at the current seek position.
 //
 // Returns:
@@ -141,7 +142,27 @@ devfile_write(struct Fd *fd, const void *buf, size_t n)
 	// remember that write is always allowed to write *fewer*
 	// bytes than requested.
 	// LAB 5: Your code here
-	panic("devfile_write not implemented");
+	int r, i, sum = 0;
+
+	for (i = 0; i < (n / max_write); i++) {
+		fsipcbuf.write.req_fileid = fd->fd_file.id;
+		fsipcbuf.write.req_n = max_write;
+		memmove((void *)fsipcbuf.write.req_buf,
+		        &((uint32_t *)buf)[i * max_write], max_write);
+		if ((r = fsipc(FSREQ_WRITE, NULL)) < 0)
+			return r;
+		sum += r;
+	}
+	if (n % max_write) {
+		fsipcbuf.write.req_fileid = fd->fd_file.id;
+		fsipcbuf.write.req_n = n % max_write;
+		memmove((void *)fsipcbuf.write.req_buf,
+		        &((uint32_t *)buf)[i * max_write], n % max_write);
+		if ((r = fsipc(FSREQ_WRITE, NULL)) < 0)
+			return r;
+		sum += r;
+	}
+	return sum;
 }
 
 static int

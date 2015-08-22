@@ -43,6 +43,9 @@ i386_init(void)
 	env_init();
 	trap_init();
 
+	// page fault in kernel
+	// cprintf("%s\n", (char *)0xAFFFFFFF);
+
 	// Lab 4 multiprocessor initialization functions
 	mp_init();
 	lapic_init();
@@ -56,6 +59,8 @@ i386_init(void)
 
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
+	spin_initlock(&kernel_lock);
+	lock_kernel();
 
 	// Starting non-boot CPUs
 	boot_aps();
@@ -134,8 +139,9 @@ mp_main(void)
 	//
 	// Your code here:
 
-	// Remove this after you finish Exercise 4
-	for (;;);
+	lock_kernel();
+	sched_yield();
+
 }
 
 /*
