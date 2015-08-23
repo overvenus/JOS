@@ -237,6 +237,7 @@ trap_dispatch(struct Trapframe *tf)
 	// LAB 4: Your code here.
 	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
 		lapic_eoi();
+		time_tick();            // increases tick in `kern/time.c`
 		sched_yield();
 		return;
 	}
