@@ -3,6 +3,13 @@
 // LAB 6: Your driver code here
 #include <inc/stdio.h>
 
+#include <kern/pmap.h>
+
+#define WORK_MODE_BYTES(addr) (*(uint32_t *) \
+                                  ((addr) + (E1000_STATUS / sizeof(uint32_t))))
+
+volatile uint32_t *e1000;
+
 #define debug 1
 
 #if debug
@@ -81,5 +88,19 @@ e1000_82540em_pci_attach (struct pci_func *pcif)
 	pci_print_func_full(pcif);
 #endif
 
+	e1000 =  mmio_map_region(pcif->reg_base[0], pcif->reg_size[0]);
+
+	e1000_82540em_status();
+
 	return 0;
+}
+
+uint32_t
+e1000_82540em_status()
+{
+#if debug
+	cprintf("82540em work mode: 0x%08x\n", WORK_MODE_BYTES(e1000));
+#endif
+
+	return WORK_MODE_BYTES(e1000);
 }
