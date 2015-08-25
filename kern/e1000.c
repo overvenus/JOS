@@ -93,10 +93,15 @@ e1000_82540em_test()
 	int r = 0;
 
 	cprintf("e1000_82540em_test\n");
-	char *m = "test...";
+	char m[] = "test...";
+	cprintf("  m physaddr: 0x%08x\n", PADDR(m));
+
 	struct tx_desc td;
-	td.addr = (uint32_t)m;
-	td.length = 8;
+	memset(&td, 0, sizeof(td));
+	td.addr = PADDR(m);
+	td.cmd |= (E1000_TXD_TCTL_CMD_SHIFT(E1000_TXD_CMD_EOP)
+	           | E1000_TXD_TCTL_CMD_SHIFT(E1000_TXD_CMD_RS));
+	td.length = sizeof(m);
 
 	uint32_t i;
 	for(i = 0; i < 1000; i++) {
