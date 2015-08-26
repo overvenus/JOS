@@ -1,31 +1,13 @@
 #ifndef JOS_KERN_E1000_H
 #define JOS_KERN_E1000_H
 
+#include <inc/nete1000.h>
+
 #include <kern/pci.h>
 #include <kern/e1000_hw.h>
 
-//
-//  63            48 47   40 39   32 31   24 23   16 15             0
-//  +---------------------------------------------------------------+
-//  |                         Buffer address                        |
-//  +---------------+-------+-------+-------+-------+---------------+
-//  |    Special    |  CSS  | Status|  Cmd  |  CSO  |    Length     |
-//  +---------------+-------+-------+-------+-------+---------------+
-//
-struct tx_desc
-{
-	uint64_t addr;
-	uint16_t length;
-	uint8_t cso;
-	uint8_t cmd;
-	uint8_t status;
-	uint8_t css;
-	uint16_t special;
-};
-
 #define E1000_TXD_TCTL_CMD_SHIFT(x) ((x) >> 24)
 #define E1000_TXD_TCTL_STAT_SHIFT(x) (x)
-
 
 int e1000_82540em_pci_attach(struct pci_func *pcif);
 uint32_t e1000_82540em_status(void);

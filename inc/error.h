@@ -27,7 +27,8 @@ enum {
 	E_NOT_SUPP	,	// Operation not supported
 
 	// E1000
-	E_TX_DESC_FULL,	// tx_desc_table full
+	E_NET_TX_DESC_FULL,	// tx_desc_table full
+	E_NET_PUT_TIMEOUT,	// try put desc time out
 
 	MAXERROR
 };

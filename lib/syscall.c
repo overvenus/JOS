@@ -122,3 +122,9 @@ sys_time_msec(void)
 {
 	return (unsigned int) syscall(SYS_time_msec, 0, 0, 0, 0, 0, 0);
 }
+
+int
+sys_net_try_put_tx_desc(struct tx_desc *td, uint32_t time)
+{
+	return syscall(SYS_net_try_put_tx_desc, (uint32_t)td, time, 0, 0, 0, 0);
+}

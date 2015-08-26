@@ -35,7 +35,8 @@ static const char * const error_string[MAXERROR] =
 	[E_FILE_EXISTS]	= "file already exists",
 	[E_NOT_EXEC]	= "file is not a valid executable",
 	[E_NOT_SUPP]	= "operation not supported",
-	[E_TX_DESC_FULL]	= "tx_desc_table full",
+	[E_NET_TX_DESC_FULL]	= "net tx_desc_table full",
+	[E_NET_PUT_TIMEOUT]	=	"net put desc timeout",
 };
 
 /*

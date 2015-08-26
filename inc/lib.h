@@ -22,6 +22,7 @@
 #include <inc/args.h>
 #include <inc/malloc.h>
 #include <inc/ns.h>
+#include <inc/nete1000.h>
 
 #define USED(x)		(void)(x)
 

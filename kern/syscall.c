@@ -12,6 +12,7 @@
 #include <kern/console.h>
 #include <kern/sched.h>
 #include <kern/time.h>
+#include <kern/e1000.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -477,6 +478,39 @@ sys_time_msec(void)
 	return time_msec();
 }
 
+// Try put tx_desc
+//
+// If timeout set 0, it will keep trying till success.
+// else if time out then return -E_NET_PUT_TIMEOUT
+//
+// RETURNS:
+//   0 on success
+//   -E_NET_PUT_TIMEOUT on timeout
+static int
+sys_net_try_put_tx_desc(struct tx_desc *td, uint32_t trytime)
+{
+	user_mem_assert(curenv, td, sizeof(struct tx_desc), PTE_U);
+
+	int r = 1;
+	int c = 0;
+	if (trytime) {
+		while (r) {
+
+			r = e1000_82540em_put_tx_desc(td);
+
+			if ((trytime--)) { return -E_NET_PUT_TIMEOUT; }
+		}
+	} else {
+		while (r) {
+
+			if ((++c) > 20) { sched_yield(); }
+
+			r = e1000_82540em_put_tx_desc(td);
+		}
+	}
+	return 0;
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -555,6 +589,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		case SYS_time_msec:
 			r = (uint32_t)sys_time_msec();
 			break;
+
+		case SYS_net_try_put_tx_desc:
+			r = (uint32_t) sys_net_try_put_tx_desc((struct tx_desc *)a2, a3);
 
 		case NSYSCALLS:
 
