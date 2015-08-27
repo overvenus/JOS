@@ -491,7 +491,16 @@ sys_net_try_put_tx_desc(struct tx_desc *td, uint32_t trytime)
 {
 	user_mem_assert(curenv, td, sizeof(struct tx_desc), PTE_U);
 
-	int r = 1;
+	int r;
+
+	physaddr_t paddr;
+	r = user_mem_phy_addr(curenv, td->addr, &paddr);
+	if (r < 0)
+		return r;
+	else
+		td->addr = paddr;
+
+	r = 1;
 	int c = 0;
 	if (trytime) {
 		while (r) {
@@ -509,6 +518,15 @@ sys_net_try_put_tx_desc(struct tx_desc *td, uint32_t trytime)
 		}
 	}
 	return 0;
+}
+
+//
+// Got a free entry?
+//
+static bool
+sys_net_tx_table_available(void)
+{
+	return e1000_82540em_tx_table_available();
 }
 
 // Dispatches to the correct kernel function, passing the arguments.
@@ -591,7 +609,12 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			break;
 
 		case SYS_net_try_put_tx_desc:
-			r = (uint32_t) sys_net_try_put_tx_desc((struct tx_desc *)a2, a3);
+			r = (uint32_t) sys_net_try_put_tx_desc((struct tx_desc *)a1, a2);
+			break;
+
+		case SYS_net_tx_table_available:
+			r = sys_net_tx_table_available();
+			break;
 
 		case NSYSCALLS:
 

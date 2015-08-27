@@ -6,6 +6,7 @@
 #include <inc/string.h>
 
 #include <kern/pmap.h>
+#include <kern/time.h>
 
 #define WORK_MODE_BYTES(addr) (*(uint32_t *) \
                                   ((addr) + (E1000_STATUS / sizeof(uint32_t))))
@@ -27,7 +28,7 @@ __attribute__((__aligned__(PGSIZE)))
 struct tx_desc tx_desc_table[NTXDESCS];
 
 
-#define debug 1
+#define debug 0
 
 #if debug
 static void
@@ -104,7 +105,7 @@ e1000_82540em_test()
 	td.length = sizeof(m);
 
 	uint32_t i;
-	for(i = 0; i < 1000; i++) {
+	for(i = 0; i < 300; i++) {
 		r = e1000_82540em_put_tx_desc(&td);
 
 		if (r < 0) {
@@ -116,6 +117,11 @@ e1000_82540em_test()
 		}
 	}
 
+	// int start = time_msec();
+	// int now = start;
+	// while (now < start + 1000)  // 1 s
+	// 	;
+
 	cprintf("e1000_82540em_test end\n\n");
 }
 #endif
@@ -126,8 +132,22 @@ e1000_82540em_init(void)
 	if (! e1000)
 		panic("e1000_82540em_init, MMIO seems wrong!");
 
-	// 1.Allocate a region of memory for the transmit descriptor list.
-	memset(&tx_desc_table, 0, sizeof(tx_desc_table));
+	// 0. Initialize tx_desc_table 
+	struct tx_desc td = {
+			.addr = (uint64_t)0,
+			.length = 0,
+			.cso = 0,
+			.cmd = 0,
+			.status = E1000_TXD_TCTL_STAT_SHIFT(E1000_TXD_STAT_DD),
+			.css = 0,
+			.special = 0
+		};
+	int i;
+	for(i = 0; i < NTXDESCS; i++) {
+		tx_desc_table[i] = td;
+	}
+
+	// 1.A region of memory for the transmit descriptor list.
 	physaddr_t descs = PADDR(&tx_desc_table);
 
 #if debug
@@ -246,15 +266,15 @@ e1000_82540em_status(void)
 //
 // RETURNS:
 //   0 on success
-//   -E_TX_DESC_FULL tx_desc_table is full
+//   -E_NET_TX_DESC_FULL tx_desc_table is full
 //
 int
 e1000_82540em_put_tx_desc(struct tx_desc *td)
 {
 	// Full?
 	struct tx_desc *tt = &tx_desc_table[*e1000_tdt];
-	if (tt->status & E1000_TXD_TCTL_STAT_SHIFT(E1000_TXD_STAT_DD)) {
-		return -E_TX_DESC_FULL;    // FULL!
+	if (! (tt->status & E1000_TXD_TCTL_STAT_SHIFT(E1000_TXD_STAT_DD))) {
+		return -E_NET_TX_DESC_FULL;    // FULL!
 	}
 
 	// Put tx_desc and mark RS
@@ -268,21 +288,13 @@ e1000_82540em_put_tx_desc(struct tx_desc *td)
 }
 
 //
-// Try put tx_desc till success.
+// Got a free entry?
 //
-// RETURNS:
-//   0 on success
-//   < 0 on fail
-//
-int
-e1000_82540em_try_put_tx_desc(struct tx_desc *td)
+bool
+e1000_82540em_tx_table_available(void)
 {
-	int r = 1;
-	while (r) {
-		// if (r == -E_TX_DESC_FULL)
-		// 	sched_yield();
-
-		r = e1000_82540em_put_tx_desc(td);
-	}
-	return 0;
+	struct tx_desc *tt = &tx_desc_table[*e1000_tdt];
+	if (! (tt->status & E1000_TXD_TCTL_STAT_SHIFT(E1000_TXD_STAT_DD)))
+		return false;    // FULL!
+	return true;
 }

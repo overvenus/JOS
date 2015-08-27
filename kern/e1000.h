@@ -12,5 +12,6 @@
 int e1000_82540em_pci_attach(struct pci_func *pcif);
 uint32_t e1000_82540em_status(void);
 int e1000_82540em_put_tx_desc(struct tx_desc *td);
+bool e1000_82540em_tx_table_available(void);
 
 #endif	// JOS_KERN_E1000_H

@@ -124,7 +124,13 @@ sys_time_msec(void)
 }
 
 int
-sys_net_try_put_tx_desc(struct tx_desc *td, uint32_t time)
+sys_net_try_put_tx_desc(struct tx_desc *td, uint32_t trytime)
 {
-	return syscall(SYS_net_try_put_tx_desc, (uint32_t)td, time, 0, 0, 0, 0);
+	return syscall(SYS_net_try_put_tx_desc, 0, (uint32_t)td, trytime, 0, 0, 0);
+}
+
+bool
+sys_net_tx_table_available(void)
+{
+	return syscall(SYS_net_tx_table_available, 0, 0, 0, 0, 0, 0);
 }

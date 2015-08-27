@@ -21,6 +21,7 @@ enum {
 
 	// Network
 	SYS_net_try_put_tx_desc,
+	SYS_net_tx_table_available,
 
 	NSYSCALLS
 };

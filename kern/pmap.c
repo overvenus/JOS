@@ -849,6 +849,29 @@ user_mem_assert(struct Env *env, const void *va, size_t len, int perm)
 	}
 }
 
+//
+// Get corresponding pyhsical address of va in env, then store it in pa_store.
+//
+// RETURN:
+//  0 on success
+//  <0 otherwise
+//
+int
+user_mem_phy_addr(struct Env *env, uintptr_t va, physaddr_t *pa_store)
+{
+	int r;
+	if ((r = user_mem_check(env, (void *)va, 0, PTE_U)) < 0) {
+		*pa_store = 0;
+		return r;
+	}
+
+	physaddr_t pa = 0;
+	struct PageInfo *pp;
+	pp = page_lookup(curenv->env_pgdir, (void *)va, 0);
+	*pa_store = page2pa(pp) | PGOFF(va);
+
+	return 0;
+}
 
 // --------------------------------------------------------------
 // Checking functions.
