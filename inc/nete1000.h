@@ -3,6 +3,7 @@
 
 #include <inc/types.h>
 
+// See 8254x_GBe_SDM.pdf Section 3.3.3 Legacy Transmit Descriptor Format
 //
 //  63            48 47   40 39   32 31   24 23   16 15             0
 //  +---------------------------------------------------------------+
@@ -19,6 +20,26 @@ struct tx_desc
 	uint8_t cmd;
 	uint8_t status;
 	uint8_t css;
+	uint16_t special;
+};
+
+
+// See 8254x_GBe_SDM.pdf Section 3.2.3 Receive Descriptor Format
+//
+//  63            48 47   40 39   32 31          16 15             0
+//  +---------------------------------------------------------------+
+//  |                         Buffer address                        |
+//  +---------------+-------+-------+-------+-------+---------------+
+//  |    Special    | errors| Status| Pkt. Checksum |    Length     |
+//  +---------------+-------+-------+-------+-------+---------------+
+//
+struct rx_desc
+{
+	uint64_t addr;
+	uint16_t length;
+	uint16_t checksum;
+	uint8_t status;
+	uint8_t errors;
 	uint16_t special;
 };
 

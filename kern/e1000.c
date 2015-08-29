@@ -16,6 +16,9 @@
 
 // Number of total tx_desc
 #define NTXDESCS 64
+// Number of total rx_desc, should be 128-byte aligned.
+// see 8254x_GBe_SDM.pdf Section 14.4 Receive Initialization: RDLEN
+#define NRXDESCS 256
 
 // MMIO address, virtual
 volatile uint32_t *e1000;
@@ -24,8 +27,14 @@ volatile uint32_t *e1000;
 volatile uint32_t *e1000_tdt;
 
 // DMA tx_desc table
-__attribute__((__aligned__(PGSIZE)))
+// MUST aligned on a paragraph (16-byte) boundary.
+// see 8254x_GBe_SDM.pdf Section 14.5 Transmit Initialization
+__attribute__((__aligned__(16)))
 struct tx_desc tx_desc_table[NTXDESCS];
+// see 8254x_GBe_SDM.pdf Section 14.4 Receive Initialization
+__attribute__((__aligned__(16)))
+struct rx_desc rx_desc_table[NRXDESCS];
+
 
 
 #define debug 0
@@ -132,6 +141,7 @@ e1000_82540em_init(void)
 	if (! e1000)
 		panic("e1000_82540em_init, MMIO seems wrong!");
 
+	/* TRANSMITTING */
 	// 0. Initialize tx_desc_table 
 	struct tx_desc td = {
 			.addr = (uint64_t)0,
@@ -148,7 +158,7 @@ e1000_82540em_init(void)
 	}
 
 	// 1.A region of memory for the transmit descriptor list.
-	physaddr_t descs = PADDR(&tx_desc_table);
+	physaddr_t tx_table = PADDR(&tx_desc_table);
 
 #if debug
 	cprintf(
@@ -163,7 +173,7 @@ e1000_82540em_init(void)
 	//     (TDBAL/TDBAH) register(s) with the address of the region.
 	//     JOS is a 32 bits O/S, TDBAL is sufficient.
 	uintptr_t tdbal = E1000_REG_ADDR(e1000, E1000_TDBAL);
-	*(uint32_t *)tdbal = descs;
+	*(uint32_t *)tdbal = tx_table;
 	uintptr_t tdbah = E1000_REG_ADDR(e1000, E1000_TDBAH);
 	*(uint32_t *)tdbah = 0;
 
@@ -202,6 +212,7 @@ e1000_82540em_init(void)
 
 	//    5.3 Configure the Collision Threshold (TCTL.CT) to the desired value.
 	//        SKIP!
+	tflag |= (0x10) << 4;
 
 	//    5.4 Configure the Collision Distance (TCTL.COLD) to its expected value.
 	//        assume full-duplex operation.
@@ -216,6 +227,99 @@ e1000_82540em_init(void)
 	tpg |= 6 << 20;
 	tpg &= 0x3FFFFFFF;
 	*(uint32_t *)tipg = tpg;
+
+	/* RECEIVING */
+	// 0. Program the Receive Address Register(s) (RAL/RAH) with the
+	//    desired Ethernet addresses.
+	//
+	//    RAL0 and RAH0 always should be used to store the individual
+	//    Ethernet MAC address of the Ethernet controller.
+	//
+	//    QEMU default MAC: 52-54-00-12-34-56
+	//
+	//    MAC In memory layout: https://tools.ietf.org/html/rfc2469#page-2
+	uintptr_t ral0 = E1000_REG_ADDR(e1000, E1000_RA);
+	uintptr_t rah0 = ral0 + sizeof(uint32_t);
+	*(uint32_t *)ral0 = 0x12005452;
+	*(uint32_t *)rah0 = 0x5634 | E1000_RAH_AV;
+
+	// 1. Initialize the MTA (Multicast Table Array) to 0b.
+	//    SKIP!
+
+	// 2. Program the Interrupt Mask Set/Read (IMS) register to enable any
+	//    interrupt the software driver wants to be notified of
+	//    when the event occurs.
+	//    SKIP!
+
+	// 3. Allocate a region of memory for the receive descriptor list.
+	//    Program the Receive Descriptor Base Address (RDBAL/RDBAH) register(s)
+	//    with the address of the region. RDBAL is used for 32-bit addresses
+	//    and both RDBAL and RDBAH are used for 64-bit addresses.
+	physaddr_t rx_table = PADDR(&rx_desc_table);
+	uintptr_t rdbal = E1000_REG_ADDR(e1000, E1000_RDBAL);
+	*(uint32_t *)rdbal = rx_table;
+	uintptr_t rdbah = E1000_REG_ADDR(e1000, E1000_RDBAH);
+	*(uint32_t *)rdbah = 0;
+	//     3.1 Initialize tx_desc_table
+	struct rx_desc rd = {
+			.addr = 0,
+			.length = 0,
+			.checksum = 0,
+			.status = 0,   // TODO: DD?
+			.errors = 0,
+			.special = 0
+	};
+	for (i = 0; i < NRXDESCS; i++) {
+		rx_desc_table[i] = rd;
+	}
+
+	// 4. Set the Receive Descriptor Length (RDLEN) register to
+	//    the size (in bytes) of the descriptor ring.
+	uintptr_t rdlen = E1000_REG_ADDR(e1000, E1000_RDLEN);
+	*(uint32_t *)rdlen = sizeof(rx_desc_table);
+
+	// 5. The Receive Descriptor Head and Tail registers
+	//    are initialized (by hardware) to 0b
+	//
+	//    BE CAREFUL!!! rdt = rdh = 0 means the ring is empty, hardware stops
+	//                  storing packets in system memory.
+	//    see 3.2.6 Receive Descriptor Queue Structure
+	uintptr_t rdt = E1000_REG_ADDR(e1000, E1000_RDT);
+	*(uint32_t *)rdt = NRXDESCS;
+	uintptr_t rdh = E1000_REG_ADDR(e1000, E1000_RDH);
+	*(uint32_t *)rdh = 0;
+
+	// 6. Program the Receive Control (RCTL) register with appropriate values
+	uint32_t rflag = 0;
+	uintptr_t rctl = E1000_REG_ADDR(e1000, E1000_RCTL);
+
+	//    6.1 Set the receiver Enable (RCTL.EN) bit to 1b for normal operation.
+	rflag |= E1000_RCTL_EN;
+
+	//    6.2 Set the Long Packet Enable (RCTL.LPE) bit.
+	//        SKIP! Disable.
+
+	//    6.3 Loopback Mode (RCTL.LBM) should be set to 00b for
+	//        normal operation.
+	rflag &= (~E1000_RCTL_DTYP_MASK);
+
+	//    6.4 Configure the Multicast Offset (RCTL.MO) bits to
+	//       the desired value.
+	//       SKIP!. Multicast disabled.
+
+	//    6.5 Set the Broadcast Accept Mode (RCTL.BAM) bit to 1b.
+	rflag |= E1000_RCTL_BAM;
+
+	//    6.6 Configure the Receive Buffer Size (RCTL.BSIZE) bits.
+	//        Mark buffer size 2048 bytes
+	rflag |= E1000_RCTL_SZ_2048;
+
+	//    6.7 Set the Strip Ethernet CRC (RCTL.SECRC) bit.
+	//        Strip CRC field.
+	rflag |= E1000_RCTL_SECRC;
+
+	*(uint32_t *) rctl = rflag;
+
 }
 
 int
