@@ -521,12 +521,63 @@ sys_net_try_put_tx_desc(struct tx_desc *td, uint32_t trytime)
 }
 
 //
-// Got a free entry?
+// Got a free entry of tx_table?
 //
 static bool
 sys_net_tx_table_available(void)
 {
 	return e1000_82540em_tx_table_available();
+}
+
+// Try put rx_desc
+//
+// If timeout set 0, it will keep trying till success.
+// else if time out then return -E_NET_PUT_TIMEOUT
+//
+// RETURNS:
+//   0 on success
+//   -E_NET_PUT_TIMEOUT on timeout
+static int
+sys_net_try_put_rx_desc(struct rx_desc *rd, uint32_t trytime)
+{
+	user_mem_assert(curenv, rd, sizeof(struct tx_desc), PTE_U);
+
+	int r;
+
+	physaddr_t paddr;
+	r = user_mem_phy_addr(curenv, rd->addr, &paddr);
+	if (r < 0)
+		return r;
+	else
+		rd->addr = paddr;
+
+	r = 1;
+	int c = 0;
+	if (trytime) {
+		while (r) {
+
+			r = e1000_82540em_put_rx_desc(rd);
+
+			if ((trytime--)) { return -E_NET_PUT_TIMEOUT; }
+		}
+	} else {
+		while (r) {
+
+			if ((++c) > 20) { sched_yield(); }
+
+			r = e1000_82540em_put_rx_desc(rd);
+		}
+	}
+	return 0;
+}
+
+//
+// Got a free entry of rx_table?
+//
+static bool
+sys_net_rx_table_available(void)
+{
+	return e1000_82540em_rx_table_available();
 }
 
 // Dispatches to the correct kernel function, passing the arguments.
@@ -614,6 +665,14 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 
 		case SYS_net_tx_table_available:
 			r = sys_net_tx_table_available();
+			break;
+
+		case SYS_net_try_put_rx_desc:
+			r = (uint32_t) sys_net_try_put_rx_desc((struct rx_desc *)a1, a2);
+			break;
+
+		case SYS_net_rx_table_available:
+			r = sys_net_rx_table_available();
 			break;
 
 		case NSYSCALLS:

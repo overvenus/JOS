@@ -134,3 +134,15 @@ sys_net_tx_table_available(void)
 {
 	return syscall(SYS_net_tx_table_available, 0, 0, 0, 0, 0, 0);
 }
+
+int
+sys_net_try_put_rx_desc(struct rx_desc *rd, uint32_t trytime)
+{
+	return syscall(SYS_net_try_put_rx_desc, 0, (uint32_t)rd, trytime, 0, 0, 0);
+}
+
+bool
+sys_net_rx_table_available(void)
+{
+	return syscall(SYS_net_rx_table_available, 0, 0, 0, 0, 0, 0);
+}
