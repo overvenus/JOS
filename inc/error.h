@@ -28,6 +28,7 @@ enum {
 
 	// E1000
 	E_NET_TX_DESC_FULL,	// tx_desc_table full
+	E_NET_RX_DESC_FULL,	// rx_desc_table full
 	E_NET_PUT_TIMEOUT,	// try put desc time out
 
 	MAXERROR

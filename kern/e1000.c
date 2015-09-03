@@ -25,6 +25,8 @@ volatile uint32_t *e1000;
 
 // MMIO TDT
 volatile uint32_t *e1000_tdt;
+// MMIO RDT
+volatile uint32_t *e1000_rdt;
 
 // DMA tx_desc table
 // MUST aligned on a paragraph (16-byte) boundary.
@@ -148,7 +150,7 @@ e1000_82540em_init(void)
 			.length = 0,
 			.cso = 0,
 			.cmd = 0,
-			.status = E1000_TXD_TCTL_STAT_SHIFT(E1000_TXD_STAT_DD),
+			.status = E1000_TXD_STAT_SHIFT(E1000_TXD_STAT_DD),
 			.css = 0,
 			.special = 0
 		};
@@ -265,7 +267,7 @@ e1000_82540em_init(void)
 			.addr = 0,
 			.length = 0,
 			.checksum = 0,
-			.status = 0,   // TODO: DD?
+			.status = E1000_RXD_STAT_SHIFT(E1000_RXD_STAT_DD),
 			.errors = 0,
 			.special = 0
 	};
@@ -285,9 +287,10 @@ e1000_82540em_init(void)
 	//                  storing packets in system memory.
 	//    see 3.2.6 Receive Descriptor Queue Structure
 	uintptr_t rdt = E1000_REG_ADDR(e1000, E1000_RDT);
-	*(uint32_t *)rdt = NRXDESCS;
+	*(uint32_t *)rdt = 0;
 	uintptr_t rdh = E1000_REG_ADDR(e1000, E1000_RDH);
 	*(uint32_t *)rdh = 0;
+	e1000_rdt = (uint32_t *)rdt;
 
 	// 6. Program the Receive Control (RCTL) register with appropriate values
 	uint32_t rflag = 0;
@@ -377,7 +380,7 @@ e1000_82540em_put_tx_desc(struct tx_desc *td)
 {
 	// Full?
 	struct tx_desc *tt = &tx_desc_table[*e1000_tdt];
-	if (! (tt->status & E1000_TXD_TCTL_STAT_SHIFT(E1000_TXD_STAT_DD))) {
+	if (! (tt->status & E1000_TXD_STAT_SHIFT(E1000_TXD_STAT_DD))) {
 		return -E_NET_TX_DESC_FULL;    // FULL!
 	}
 
@@ -392,13 +395,51 @@ e1000_82540em_put_tx_desc(struct tx_desc *td)
 }
 
 //
-// Got a free entry?
+// Got a free entry of tx_desc_table?
 //
 bool
 e1000_82540em_tx_table_available(void)
 {
 	struct tx_desc *tt = &tx_desc_table[*e1000_tdt];
-	if (! (tt->status & E1000_TXD_TCTL_STAT_SHIFT(E1000_TXD_STAT_DD)))
+	if (! (tt->status & E1000_TXD_STAT_SHIFT(E1000_TXD_STAT_DD)))
+		return false;    // FULL!
+	return true;
+}
+
+//
+// Put a rx_desc.
+//
+// RETURNS:
+//   0 on success
+//   -E_NET_RX_DESC_FULL rx_desc_table is full
+//
+int
+e1000_82540em_put_rx_desc(struct rx_desc *rd)
+{
+	// Full?
+	struct rx_desc *rr = &rx_desc_table[*e1000_rdt];
+	if (! (rr->status & E1000_RXD_STAT_SHIFT(E1000_RXD_STAT_DD))) {
+		return -E_NET_RX_DESC_FULL;    // FULL!
+	}
+
+	// Put rx_desc and unmark DD
+	*rr = *rd;
+	rr->status &= (~E1000_RXD_STAT_SHIFT(E1000_RXD_STAT_DD));
+
+	// Update RDT
+	*e1000_rdt = ((*e1000_rdt) + 1) & (NRXDESCS - 1);
+
+	return 0;
+}
+
+//
+// Got a free entry of rx_desc_table?
+//
+bool
+e1000_82540em_rx_table_available(void)
+{
+	struct rx_desc *rr = &rx_desc_table[*e1000_rdt];
+	if (! (rr->status & E1000_RXD_STAT_SHIFT(E1000_RXD_STAT_DD)))
 		return false;    // FULL!
 	return true;
 }

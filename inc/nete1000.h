@@ -30,7 +30,7 @@ struct tx_desc
 //  +---------------------------------------------------------------+
 //  |                         Buffer address                        |
 //  +---------------+-------+-------+-------+-------+---------------+
-//  |    Special    | errors| Status| Pkt. Checksum |    Length     |
+//  |    Special    | Errors| Status| Pkt. Checksum |    Length     |
 //  +---------------+-------+-------+-------+-------+---------------+
 //
 struct rx_desc
