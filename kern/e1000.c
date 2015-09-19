@@ -272,6 +272,8 @@ e1000_82540em_init(void)
 			.special = 0
 	};
 	for (i = 0; i < NRXDESCS; i++) {
+		// Allocate memory, phsical address for DMA.
+		rd.addr = page2pa(page_alloc(0));
 		rx_desc_table[i] = rd;
 	}
 
@@ -287,7 +289,7 @@ e1000_82540em_init(void)
 	//                  storing packets in system memory.
 	//    see 3.2.6 Receive Descriptor Queue Structure
 	uintptr_t rdt = E1000_REG_ADDR(e1000, E1000_RDT);
-	*(uint32_t *)rdt = 0;
+	*(uint32_t *)rdt = NRXDESCS - 1;
 	uintptr_t rdh = E1000_REG_ADDR(e1000, E1000_RDH);
 	*(uint32_t *)rdh = 0;
 	e1000_rdt = (uint32_t *)rdt;
@@ -372,7 +374,7 @@ e1000_82540em_status(void)
 // Put a tx_desc.
 //
 // RETURNS:
-//   0 on success
+//   index of the tx_desc, >= 0
 //   -E_NET_TX_DESC_FULL tx_desc_table is full
 //
 int
@@ -391,7 +393,7 @@ e1000_82540em_put_tx_desc(struct tx_desc *td)
 	// Update TDT
 	*e1000_tdt = ((*e1000_tdt) + 1) & (NTXDESCS - 1);
 
-	return 0;
+	return *e1000_tdt;
 }
 
 //
@@ -407,29 +409,42 @@ e1000_82540em_tx_table_available(void)
 }
 
 //
-// Put a rx_desc.
+// Read a rx_desc.
+// The rd->addr will be updates to the new physical address which is the page
+// that already contents some date from network.
+//
+//   1. Exchange physical address of rd and current RDT
+//   2. Unset RDT's DD
+//   3. RDT += 1
 //
 // RETURNS:
-//   0 on success
-//   -E_NET_RX_DESC_FULL rx_desc_table is full
+//   index of the rx_desc, >= 0
+//   -E_NET_RX_DESC_EMPTY if there is no data in receive queue.
 //
 int
-e1000_82540em_put_rx_desc(struct rx_desc *rd)
+e1000_82540em_read_rx_desc(struct rx_desc *rd)
 {
-	// Full?
-	struct rx_desc *rr = &rx_desc_table[*e1000_rdt];
-	if (! (rr->status & E1000_RXD_STAT_SHIFT(E1000_RXD_STAT_DD))) {
-		return -E_NET_RX_DESC_FULL;    // FULL!
+	// i is the index of the frist rx_desc with DD bit under RDT. 
+	int i = (*e1000_rdt + 1) & (NRXDESCS - 1);
+	if (! (rx_desc_table[i].status & E1000_RXD_STAT_SHIFT(E1000_RXD_STAT_DD))) {
+		cprintf("No data in receive queue.");
+		return -E_NET_RX_DESC_EMPTY;
 	}
+#if (debug | 1)
+		cprintf("In %s, line %d\n", __FILE__, __LINE__);
+#endif
+	struct rx_desc *rr = &rx_desc_table[i];
 
-	// Put rx_desc and unmark DD
-	*rr = *rd;
+	// Exchange rx_desc and unset DD
+	uint64_t pa = rd->addr;
+	*rd = *rr;
+	rr->addr = pa;
 	rr->status &= (~E1000_RXD_STAT_SHIFT(E1000_RXD_STAT_DD));
 
 	// Update RDT
-	*e1000_rdt = ((*e1000_rdt) + 1) & (NRXDESCS - 1);
+	*e1000_rdt = i;
 
-	return 0;
+	return i;
 }
 
 //
@@ -439,6 +454,15 @@ bool
 e1000_82540em_rx_table_available(void)
 {
 	struct rx_desc *rr = &rx_desc_table[*e1000_rdt];
+	if (! (rr->status & E1000_RXD_STAT_SHIFT(E1000_RXD_STAT_DD)))
+		return false;    // FULL!
+	return true;
+}
+
+bool
+e1000_82540em_is_rx_desc_done(int i)
+{
+	struct rx_desc *rr = &rx_desc_table[i];
 	if (! (rr->status & E1000_RXD_STAT_SHIFT(E1000_RXD_STAT_DD)))
 		return false;    // FULL!
 	return true;

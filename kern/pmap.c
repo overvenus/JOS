@@ -873,6 +873,30 @@ user_mem_phy_addr(struct Env *env, uintptr_t va, physaddr_t *pa_store)
 	return 0;
 }
 
+//
+// Replace the page mapped in va with pt, and exchange pp_ref.
+// Like page_insert but DO NOT automatically increase or decrease pp_ref.
+//
+int
+user_mem_page_replace(uintptr_t va, struct PageInfo *pt)
+{
+	user_mem_assert(curenv, (const void *)va, PGSIZE, PTE_U| PTE_P);
+
+	pte_t *ppet;
+	struct PageInfo *po = page_lookup(curenv->env_pgdir, (void *)va, &ppet);
+
+	// Exchange pp_ref
+	int ref = po->pp_ref;
+	po->pp_ref = pt->pp_ref;
+	pt->pp_ref = ref;
+
+	// Update the new PageInfo backend, leave permit unchange.
+	*ppet = page2pa(pt) | PGOFF(*ppet);
+	tlb_invalidate(curenv->env_pgdir, (void*)va);
+
+	return 0;
+}
+
 // --------------------------------------------------------------
 // Checking functions.
 // --------------------------------------------------------------

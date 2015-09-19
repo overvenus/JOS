@@ -35,7 +35,8 @@ struct tx_desc
 //
 struct rx_desc
 {
-	uint64_t addr;
+	uint64_t addr;		// addr is vritual address in user space 
+						//         physical address in kernel space
 	uint16_t length;
 	uint16_t checksum;
 	uint8_t status;

@@ -24,6 +24,7 @@ enum {
 	SYS_net_tx_table_available,
 	SYS_net_try_put_rx_desc,
 	SYS_net_rx_table_available,
+	SYS_net_is_rx_desc_done,
 
 	NSYSCALLS
 };

@@ -14,6 +14,8 @@
 #include <kern/time.h>
 #include <kern/e1000.h>
 
+#define debug 1
+
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
 // Destroys the environment on memory errors.
@@ -500,17 +502,17 @@ sys_net_try_put_tx_desc(struct tx_desc *td, uint32_t trytime)
 	else
 		td->addr = paddr;
 
-	r = 1;
+	r = -1;
 	int c = 0;
 	if (trytime) {
-		while (r) {
+		while (r < 0) {
 
 			r = e1000_82540em_put_tx_desc(td);
 
 			if ((trytime--)) { return -E_NET_PUT_TIMEOUT; }
 		}
 	} else {
-		while (r) {
+		while (r < 0) {
 
 			if ((++c) > 20) { sched_yield(); }
 
@@ -538,36 +540,53 @@ sys_net_tx_table_available(void)
 //   0 on success
 //   -E_NET_PUT_TIMEOUT on timeout
 static int
-sys_net_try_put_rx_desc(struct rx_desc *rd, uint32_t trytime)
+sys_net_try_read_rx_desc(struct rx_desc *rd, uint32_t trytime)
 {
 	user_mem_assert(curenv, rd, sizeof(struct tx_desc), PTE_U);
 
 	int r;
 
+	// Kernel space rx_desc.
+	struct rx_desc kr = *rd;
 	physaddr_t paddr;
 	r = user_mem_phy_addr(curenv, rd->addr, &paddr);
 	if (r < 0)
 		return r;
 	else
-		rd->addr = paddr;
+		kr.addr = paddr;
 
-	r = 1;
+#if debug
+	cprintf("kr.addr: %08x\n", kr.addr);
+#endif
+
+	r = -1;
 	int c = 0;
 	if (trytime) {
-		while (r) {
+		while (r < 0) {
 
-			r = e1000_82540em_put_rx_desc(rd);
+			r = e1000_82540em_read_rx_desc(&kr);
 
 			if ((trytime--)) { return -E_NET_PUT_TIMEOUT; }
 		}
 	} else {
-		while (r) {
+		while (r < 0) {
 
 			if ((++c) > 20) { sched_yield(); }
 
-			r = e1000_82540em_put_rx_desc(rd);
+			r = e1000_82540em_read_rx_desc(&kr);
 		}
 	}
+
+#if debug
+	cprintf("kr.addr after exchange: %08x\n", kr.addr);
+	cprintf("In %s, line %d\n", __FILE__, __LINE__);
+#endif
+
+	if (r == -E_NET_RX_DESC_EMPTY)
+		return r;
+	user_mem_page_replace(rd->addr, pa2page(kr.addr));
+	kr.addr = rd->addr;
+	*rd = kr;
 	return 0;
 }
 
@@ -579,6 +598,13 @@ sys_net_rx_table_available(void)
 {
 	return e1000_82540em_rx_table_available();
 }
+
+static bool
+sys_net_is_rx_desc_done(int i)
+{
+	return e1000_82540em_is_rx_desc_done(i);
+}
+
 
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
@@ -668,11 +694,15 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			break;
 
 		case SYS_net_try_put_rx_desc:
-			r = (uint32_t) sys_net_try_put_rx_desc((struct rx_desc *)a1, a2);
+			r = (uint32_t) sys_net_try_read_rx_desc((struct rx_desc *)a1, a2);
 			break;
 
 		case SYS_net_rx_table_available:
 			r = sys_net_rx_table_available();
+			break;
+
+		case SYS_net_is_rx_desc_done:
+			r = sys_net_is_rx_desc_done(a1);
 			break;
 
 		case NSYSCALLS:

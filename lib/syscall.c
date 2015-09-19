@@ -136,7 +136,7 @@ sys_net_tx_table_available(void)
 }
 
 int
-sys_net_try_put_rx_desc(struct rx_desc *rd, uint32_t trytime)
+sys_net_try_read_rx_desc(struct rx_desc *rd, uint32_t trytime)
 {
 	return syscall(SYS_net_try_put_rx_desc, 0, (uint32_t)rd, trytime, 0, 0, 0);
 }
@@ -145,4 +145,10 @@ bool
 sys_net_rx_table_available(void)
 {
 	return syscall(SYS_net_rx_table_available, 0, 0, 0, 0, 0, 0);
+}
+
+bool
+sys_net_is_rx_desc_done(int i)
+{
+	return syscall(SYS_net_is_rx_desc_done, 0, i, 0, 0, 0, 0);
 }
