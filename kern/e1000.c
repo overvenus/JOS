@@ -271,7 +271,9 @@ e1000_82540em_init(void)
 	memset(rx_desc_table, 0, sizeof(rx_desc_table));
 	for (i = 0; i < NRXDESCS; i++) {
 		// Allocate memory, phsical address for DMA.
-		rx_desc_table[i].addr = page2pa(page_alloc(0));
+		// 4 is the offset of &nsipcbuf.pkt.jp_data
+		// TODO: dead code, it shloud be able automatically compute.
+		rx_desc_table[i].addr = page2pa(page_alloc(0)) + 4;
 	}
 
 	// 4. Set the Receive Descriptor Length (RDLEN) register to
