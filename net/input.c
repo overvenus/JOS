@@ -23,9 +23,6 @@ input(envid_t ns_envid)
 	int r;
 	while(1) {
 
-		if (! sys_net_rx_table_available())
-			continue;    // FULL!
-
 		// Alloc a new page at nsipcbuf
 		r = sys_page_alloc(0, &nsipcbuf, PTE_U| PTE_W| PTE_P);
 		if (r < 0) {
@@ -36,10 +33,15 @@ input(envid_t ns_envid)
 		struct rx_desc rd = {0, 0, 0, 0, 0, 0};
 		rd.addr = (uintptr_t)&nsipcbuf.pkt.jp_data;
 
-		// 0 guarantees read success.
-		r = sys_net_try_read_rx_desc(&rd, 0);
-		if (r < 0)
-			panic("input: %e", r);
+		retry:
+		r = sys_net_try_read_rx_desc(&rd, 2);
+		if (r == -E_NET_RX_DESC_EMPTY) {
+#if debug
+			cprintf("%s\tretry\n". __FILE__);
+#endif
+			sys_yield();
+			goto retry;
+		}
 		nsipcbuf.pkt.jp_len = rd.length;
 #if debug
 		cprintf("rd.addr: %08x\n", rd.addr);
@@ -56,6 +58,7 @@ input(envid_t ns_envid)
 #endif
 		if (r < 0) {
 			if (r == -E_IPC_NOT_RECV) {
+				cprintf("In %s, line %d\n", __FILE__, __LINE__);
 				sys_yield();
 				goto again;
 			}

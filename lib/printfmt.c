@@ -36,7 +36,7 @@ static const char * const error_string[MAXERROR] =
 	[E_NOT_EXEC]	= "file is not a valid executable",
 	[E_NOT_SUPP]	= "operation not supported",
 	[E_NET_TX_DESC_FULL]	= "net tx_desc_table full",
-	[E_NET_RX_DESC_EMPTY]	= "net rx_desc_table full",
+	[E_NET_RX_DESC_EMPTY]	= "net rx_desc_table empty",
 	[E_NET_PUT_TIMEOUT]	= "net put desc timeout",
 	[E_NET_READ_TIMEOUT]	= "net read desc time out",
 

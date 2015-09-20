@@ -14,7 +14,7 @@
 #include <kern/time.h>
 #include <kern/e1000.h>
 
-#define debug 1
+#define debug 0
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -503,13 +503,13 @@ sys_net_try_put_tx_desc(struct tx_desc *td, uint32_t trytime)
 		td->addr = paddr;
 
 	r = -1;
-	int c = 0;
-	if (trytime) {
+	int c = trytime;
+	if (c) {
 		while (r < 0) {
 
 			r = e1000_82540em_put_tx_desc(td);
 
-			if ((trytime--)) { return -E_NET_PUT_TIMEOUT; }
+			if ((c--)) { return -E_NET_PUT_TIMEOUT; }
 		}
 	} else {
 		while (r < 0) {
@@ -531,14 +531,13 @@ sys_net_tx_table_available(void)
 	return e1000_82540em_tx_table_available();
 }
 
-// Try put rx_desc
 //
-// If timeout set 0, it will keep trying till success.
-// else if time out then return -E_NET_PUT_TIMEOUT
+// Try read rx_desc
+// If trytime set 0 means no retry.
 //
 // RETURNS:
-//   0 on success
-//   -E_NET_PUT_TIMEOUT on timeout
+//   index of the rx_desc, >= 0
+//   -E_NET_RX_DESC_EMPTY
 static int
 sys_net_try_read_rx_desc(struct rx_desc *rd, uint32_t trytime)
 {
@@ -555,39 +554,31 @@ sys_net_try_read_rx_desc(struct rx_desc *rd, uint32_t trytime)
 	else
 		kr.addr = paddr;
 
-#if debug
+#if debug | 1
 	cprintf("kr.addr: %08x\n", kr.addr);
 #endif
 
-	r = -1;
-	int c = 0;
-	if (trytime) {
-		while (r < 0) {
-
-			r = e1000_82540em_read_rx_desc(&kr);
-
-			if ((trytime--)) { return -E_NET_PUT_TIMEOUT; }
+	retry:
+	r = e1000_82540em_read_rx_desc(&kr);
+	if (r < 0) {
+		if (trytime == 0) {
+			return r;
 		}
-	} else {
-		while (r < 0) {
-
-			if ((++c) > 20) { sched_yield(); }
-
-			r = e1000_82540em_read_rx_desc(&kr);
-		}
+		trytime -= 1;
+#if debug
+		cprintf("sys_net_try_read_rx_desc retry: %d\n", trytime);
+#endif
+		goto retry;
 	}
 
 #if debug
 	cprintf("kr.addr after exchange: %08x\n", kr.addr);
 	cprintf("In %s, line %d\n", __FILE__, __LINE__);
 #endif
-
-	if (r == -E_NET_RX_DESC_EMPTY)
-		return r;
 	user_mem_page_replace(rd->addr, pa2page(kr.addr));
 	kr.addr = rd->addr;
 	*rd = kr;
-	return 0;
+	return r;
 }
 
 //
@@ -694,7 +685,7 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			break;
 
 		case SYS_net_try_put_rx_desc:
-			r = (uint32_t) sys_net_try_read_rx_desc((struct rx_desc *)a1, a2);
+			r = sys_net_try_read_rx_desc((struct rx_desc *)a1, a2);
 			break;
 
 		case SYS_net_rx_table_available:

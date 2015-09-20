@@ -132,7 +132,12 @@ e1000_82540em_test()
 	// int now = start;
 	// while (now < start + 1000)  // 1 s
 	// 	;
-
+	cprintf("rx_desc_table:\n");
+	int ii;
+	for(ii = 0; ii < NRXDESCS; ii++) {
+		cprintf("  [%3d]'s status: %d\n",ii, rx_desc_table[ii].status);
+	}
+	cprintf("\n");
 	cprintf("e1000_82540em_test end\n\n");
 }
 #endif
@@ -168,7 +173,7 @@ e1000_82540em_init(void)
 		"  descs va: 0x%08x\n"
 		"  descs va: 0x%08x\n"
 		"  e1000: 0x%08x\n",
-		&tx_desc_table, descs, e1000);
+		&tx_desc_table, tx_table, e1000);
 #endif
 
 	// 2.Program the Transmit Descriptor Base Address
@@ -263,18 +268,10 @@ e1000_82540em_init(void)
 	uintptr_t rdbah = E1000_REG_ADDR(e1000, E1000_RDBAH);
 	*(uint32_t *)rdbah = 0;
 	//     3.1 Initialize tx_desc_table
-	struct rx_desc rd = {
-			.addr = 0,
-			.length = 0,
-			.checksum = 0,
-			.status = E1000_RXD_STAT_SHIFT(E1000_RXD_STAT_DD),
-			.errors = 0,
-			.special = 0
-	};
+	memset(rx_desc_table, 0, sizeof(rx_desc_table));
 	for (i = 0; i < NRXDESCS; i++) {
 		// Allocate memory, phsical address for DMA.
-		rd.addr = page2pa(page_alloc(0));
-		rx_desc_table[i] = rd;
+		rx_desc_table[i].addr = page2pa(page_alloc(0));
 	}
 
 	// 4. Set the Receive Descriptor Length (RDLEN) register to
@@ -424,22 +421,48 @@ e1000_82540em_tx_table_available(void)
 int
 e1000_82540em_read_rx_desc(struct rx_desc *rd)
 {
+#if debug
+	cprintf("In %s, line %d\n", __FILE__, __LINE__);
+	cprintf("rx_desc_table:\n");
+	int ii;
+	for(ii = 0; ii < 15; ii++) {
+		cprintf("  [%3d]'s status: %d\n",ii, rx_desc_table[ii].status);
+	}
+	cprintf("\n");
+#endif
+
+	struct rx_desc *rr;
+
 	// i is the index of the frist rx_desc with DD bit under RDT. 
 	int i = (*e1000_rdt + 1) & (NRXDESCS - 1);
-	if (! (rx_desc_table[i].status & E1000_RXD_STAT_SHIFT(E1000_RXD_STAT_DD))) {
-		cprintf("No data in receive queue.");
+	if (rx_desc_table[i].status & E1000_RXD_STAT_SHIFT(E1000_RXD_STAT_DD)) {
+		if (rx_desc_table[i].status & E1000_RXD_STAT_SHIFT(E1000_RXD_STAT_EOP)) {
+
+			goto receive;
+		}
+		panic("DO NOT support jumbo frames!");
+
+	} else {
+
+#if debug
+		cprintf("No data in receive queue.\n");
+#endif
 		return -E_NET_RX_DESC_EMPTY;
 	}
-#if (debug | 1)
-		cprintf("In %s, line %d\n", __FILE__, __LINE__);
+
+	receive:
+
+	rr = &rx_desc_table[i];
+
+#if debug
+	cprintf("Tail will point to %d\n", i);
 #endif
-	struct rx_desc *rr = &rx_desc_table[i];
 
 	// Exchange rx_desc and unset DD
 	uint64_t pa = rd->addr;
 	*rd = *rr;
 	rr->addr = pa;
-	rr->status &= (~E1000_RXD_STAT_SHIFT(E1000_RXD_STAT_DD));
+	rr->status = 0;
 
 	// Update RDT
 	*e1000_rdt = i;
