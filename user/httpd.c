@@ -77,7 +77,19 @@ static int
 send_data(struct http_request *req, int fd)
 {
 	// LAB 6: Your code here.
-	panic("send_data not implemented");
+	int r = 0;
+	char buf[128];
+	for(;;) {
+		r = read(fd, &buf, sizeof(buf));
+		if (r == 0)
+			break;
+		if (r < 0)
+			return r;
+
+		if (write(req->sock, buf, r) != r)
+			die("Failed to send bytes to client");
+	}
+	return 0;
 }
 
 static int
@@ -198,7 +210,7 @@ send_error(struct http_request *req, int code)
 
 	r = snprintf(buf, 512, "HTTP/" HTTP_VERSION" %d %s\r\n"
 			       "Server: jhttpd/" VERSION "\r\n"
-			       "Connection: close"
+			       "Connection: close\r\n"
 			       "Content-type: text/html\r\n"
 			       "\r\n"
 			       "<html><body><p>%d - %s</p></body></html>\r\n",
@@ -223,8 +235,23 @@ send_file(struct http_request *req)
 	// set file_size to the size of the file
 
 	// LAB 6: Your code here.
-	panic("send_file not implemented");
+	if ((fd = open(req->url, O_RDONLY)) < 0) {
+		r = 404;
+		goto error;
+	}
 
+	struct Stat st;
+	if ((r = fstat(fd, &st)) < 0) {
+		r = 400;
+		goto error;
+	}
+
+	if (st.st_isdir) {
+		r = 404;
+		goto error;
+	}
+
+	if (req->url)
 	if ((r = send_header(req, 200)) < 0)
 		goto end;
 
@@ -237,7 +264,16 @@ send_file(struct http_request *req)
 	if ((r = send_header_fin(req)) < 0)
 		goto end;
 
-	r = send_data(req, fd);
+	if ((r = send_data(req, fd)) < 0) {
+		r = 400;
+		goto error;
+	} else {
+		goto end;
+	}
+
+
+error:
+	send_error(req, r);
 
 end:
 	close(fd);
