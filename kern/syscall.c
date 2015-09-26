@@ -14,8 +14,6 @@
 #include <kern/time.h>
 #include <kern/e1000.h>
 
-#define debug 0
-
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
 // Destroys the environment on memory errors.
@@ -554,10 +552,6 @@ sys_net_try_read_rx_desc(struct rx_desc *rd, uint32_t trytime)
 	else
 		kr.addr = paddr;
 
-#if debug | 1
-	cprintf("kr.addr: %08x\n", kr.addr);
-#endif
-
 	retry:
 	r = e1000_82540em_read_rx_desc(&kr);
 	if (r < 0) {
@@ -565,16 +559,9 @@ sys_net_try_read_rx_desc(struct rx_desc *rd, uint32_t trytime)
 			return r;
 		}
 		trytime -= 1;
-#if debug
-		cprintf("sys_net_try_read_rx_desc retry: %d\n", trytime);
-#endif
 		goto retry;
 	}
 
-#if debug
-	cprintf("kr.addr after exchange: %08x\n", kr.addr);
-	cprintf("In %s, line %d\n", __FILE__, __LINE__);
-#endif
 	user_mem_page_replace(rd->addr, pa2page(kr.addr));
 	kr.addr = rd->addr;
 	*rd = kr;
@@ -693,7 +680,7 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			break;
 
 		case SYS_net_is_rx_desc_done:
-			r = sys_net_is_rx_desc_done(a1);
+			r = sys_net_is_rx_desc_done((int)a1);
 			break;
 
 		case NSYSCALLS:

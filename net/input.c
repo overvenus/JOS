@@ -36,9 +36,6 @@ input(envid_t ns_envid)
 		retry:
 		r = sys_net_try_read_rx_desc(&rd, 2);
 		if (r == -E_NET_RX_DESC_EMPTY) {
-#if debug
-			cprintf("%s\tretry\n". __FILE__);
-#endif
 			sys_yield();
 			goto retry;
 		}
@@ -53,20 +50,13 @@ input(envid_t ns_envid)
 		again:
 		r = sys_ipc_try_send(ns_envid, NSREQ_INPUT, &nsipcbuf,
 		                     PTE_P| PTE_W| PTE_U);
-#if debug
-		cprintf("In %s, line %d\n", __FILE__, __LINE__);
-#endif
 		if (r < 0) {
 			if (r == -E_IPC_NOT_RECV) {
-				cprintf("In %s, line %d\n", __FILE__, __LINE__);
 				sys_yield();
 				goto again;
 			}
 			panic("input, %e", r);
 		}
-#if debug
-		cprintf("In %s, line %d\n", __FILE__, __LINE__);
-#endif
 	}
 }
 

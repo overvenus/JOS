@@ -150,5 +150,5 @@ sys_net_rx_table_available(void)
 bool
 sys_net_is_rx_desc_done(int i)
 {
-	return syscall(SYS_net_is_rx_desc_done, 0, i, 0, 0, 0, 0);
+	return syscall(SYS_net_is_rx_desc_done, 0, (uint32_t)i, 0, 0, 0, 0);
 }

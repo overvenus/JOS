@@ -167,15 +167,6 @@ e1000_82540em_init(void)
 	// 1.A region of memory for the transmit descriptor list.
 	physaddr_t tx_table = PADDR(&tx_desc_table);
 
-#if debug
-	cprintf(
-		"e1000_82540em_init\n"
-		"  descs va: 0x%08x\n"
-		"  descs va: 0x%08x\n"
-		"  e1000: 0x%08x\n",
-		&tx_desc_table, tx_table, e1000);
-#endif
-
 	// 2.Program the Transmit Descriptor Base Address
 	//     (TDBAL/TDBAH) register(s) with the address of the region.
 	//     JOS is a 32 bits O/S, TDBAL is sufficient.
@@ -184,21 +175,10 @@ e1000_82540em_init(void)
 	uintptr_t tdbah = E1000_REG_ADDR(e1000, E1000_TDBAH);
 	*(uint32_t *)tdbah = 0;
 
-#if debug
-	cprintf("  *(uint32_t *)tdbah: 0x%08x\n", *(uint32_t *)tdbal);
-#endif
-
 	// 3. Set the Transmit Descriptor Length (TDLEN) register to
 	//    the size (in bytes) of the descriptor ring.
 	uintptr_t tdlen = E1000_REG_ADDR(e1000, E1000_TDLEN);
 	*(uint32_t *)tdlen = sizeof(tx_desc_table);
-
-#if debug
-	cprintf(
-		"  sizeof tx_desc_table: %d\n"
-		"  tx_desc_table entry: %d\n\n",
-		sizeof(tx_desc_table), sizeof(tx_desc_table[0]));
-#endif
 
 	// 4. The Transmit Descriptor Head and Tail (TDH/TDT) registers
 	uintptr_t tdh = E1000_REG_ADDR(e1000, E1000_TDH);
@@ -223,7 +203,7 @@ e1000_82540em_init(void)
 
 	//    5.4 Configure the Collision Distance (TCTL.COLD) to its expected value.
 	//        assume full-duplex operation.
-	tflag |= 0x40 << 12;
+	tflag |= (0x40) << 12;
 	*(uint32_t *)tctl = tflag;
 
 	// 6. Program the Transmit IPG (TIPG) register for IEEE 802.3
@@ -331,18 +311,8 @@ e1000_82540em_pci_attach (struct pci_func *pcif)
 {
 	cprintf("Hello, this is e1000 driver!\n");
 
-#if debug
-	cprintf("Before pci_func_enable(pcif);\n");
-	pci_print_func_full(pcif);
-#endif
-
 	// enable 82540em.
 	pci_func_enable(pcif);
-
-#if debug
-	cprintf("After pci_func_enable(pcif);\n");
-	pci_print_func_full(pcif);
-#endif
 
 	e1000 = mmio_map_region(pcif->reg_base[0], pcif->reg_size[0]);
 
@@ -446,19 +416,12 @@ e1000_82540em_read_rx_desc(struct rx_desc *rd)
 
 	} else {
 
-#if debug
-		cprintf("No data in receive queue.\n");
-#endif
 		return -E_NET_RX_DESC_EMPTY;
 	}
 
 	receive:
 
 	rr = &rx_desc_table[i];
-
-#if debug
-	cprintf("Tail will point to %d\n", i);
-#endif
 
 	// Exchange rx_desc and unset DD
 	uint64_t pa = rd->addr;
@@ -473,12 +436,12 @@ e1000_82540em_read_rx_desc(struct rx_desc *rd)
 }
 
 //
-// Got a free entry of rx_desc_table?
+// Got some data in rx_desc_table?
 //
 bool
 e1000_82540em_rx_table_available(void)
 {
-	struct rx_desc *rr = &rx_desc_table[*e1000_rdt];
+	struct rx_desc *rr = &rx_desc_table[*e1000_rdt + 1];
 	if (! (rr->status & E1000_RXD_STAT_SHIFT(E1000_RXD_STAT_DD)))
 		return false;    // FULL!
 	return true;
