@@ -423,7 +423,7 @@ env_create(uint8_t *binary, enum EnvType type)
 	if (0 > (r = env_alloc(&pp_env, (envid_t)0)))
 		panic("Can't create env: %e\n", r);
 
-	pp_env->env_type = ENV_TYPE_USER;
+	pp_env->env_type = type;
 	load_icode(pp_env, binary);
 }
 
